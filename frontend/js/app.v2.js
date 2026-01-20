@@ -1142,8 +1142,43 @@ function imprimirTicket() {
   const style = document.createElement('style');
   style.innerHTML = `
     @media print {
-      body, html { background: #fff !important; color: #111 !important; width: 58mm !important; margin: 0 !important; padding: 0 !important; }
-      #ticket-print-area { width: 58mm !important; margin: 0 auto !important; }
+      html, body {
+        background: #fff !important;
+        color: #111 !important;
+        width: 58mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      #ticket-print-area {
+        width: 58mm !important;
+        margin: 0 auto !important;
+        font-family: 'Courier New', monospace !important;
+        font-size: 12px !important;
+        color: #111 !important;
+        background: #fff !important;
+        line-height: 1.25 !important;
+      }
+      #ticket-print-area .ticket-header {
+        font-size: 14px !important;
+        font-weight: bold !important;
+        text-align: center !important;
+        margin-bottom: 8px !important;
+      }
+      #ticket-print-area .ticket-total {
+        font-size: 13px !important;
+        font-weight: bold !important;
+        color: #000 !important;
+        text-align: right !important;
+        margin-top: 8px !important;
+      }
+      #ticket-print-area .ticket-footer {
+        font-size: 12px !important;
+        color: #222 !important;
+        text-align: center !important;
+        margin-top: 10px !important;
+        border-top: 1px dashed #111 !important;
+        padding-top: 6px !important;
+      }
     }
     @page { size: 58mm auto; margin: 3mm; }
   `;
