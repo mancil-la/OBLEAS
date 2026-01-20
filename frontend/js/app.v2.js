@@ -1071,32 +1071,28 @@ async function mostrarTicket(ventaId) {
     const venta = await fetchJson(`${API_URL}/ventas/${ventaId}`, { method: 'GET' });
     if (!venta) return;
 
-    const fecha = new Date(venta.fecha).toLocaleString('es-ES');
+    // Fecha corta para ahorrar espacio
+    const f = new Date(venta.fecha);
+    const fecha = `${f.getDate()}/${f.getMonth() + 1} ${f.getHours()}:${String(f.getMinutes()).padStart(2, '0')}`;
 
     let ticketHTML = `
       <div class="ticket-paper">
-        <div class="ticket-header">
-          <div class="ticket-title">OBLEAS & BOTANAS</div>
-        </div>
-        <div class="ticket-info">
-          <div>#${venta.id} | ${fecha}</div>
-        </div>
+        <div class="ticket-header">OBLEAS</div>
+        <div class="ticket-info">#${venta.id} ${fecha}</div>
         <div class="ticket-productos">
     `;
 
     (venta.detalles || []).forEach((d) => {
-      ticketHTML += `
-        <div class="ticket-producto">
-          <span class="prod-nombre">${d.producto_nombre}</span>
-          <span class="prod-detalle">${d.cantidad}x${formatMoney(d.precio_unitario)} = ${formatMoney(d.subtotal)}</span>
-        </div>
-      `;
+      // Truncar nombre a 18 chars max
+      const nombre = d.producto_nombre.length > 18 ? d.producto_nombre.substring(0, 17) + '.' : d.producto_nombre;
+      const precio = Number(d.precio_unitario).toFixed(0);
+      const sub = Number(d.subtotal).toFixed(0);
+      ticketHTML += `<div class="ticket-producto">${nombre}<br>${d.cantidad}x$${precio}=$${sub}</div>`;
     });
 
     ticketHTML += `
         </div>
-        <div class="ticket-total">TOTAL: ${formatMoney(venta.total)}</div>
-        <div class="ticket-footer">Gracias!</div>
+        <div class="ticket-total">$${Number(venta.total).toFixed(0)}</div>
       </div>
     `;
 
@@ -1137,100 +1133,65 @@ function imprimirTicket() {
   style.innerHTML = `
     @media print {
       * {
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
-      html, body {
-        background: #fff !important;
-        color: #000 !important;
-        width: 58mm !important;
-        min-width: 58mm !important;
-        max-width: 58mm !important;
         margin: 0 !important;
         padding: 0 !important;
+        box-sizing: border-box !important;
+      }
+      html, body {
+        width: 48mm !important;
+        max-width: 48mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
       }
       #ticket-print-area {
-        width: 58mm !important;
-        min-width: 58mm !important;
-        max-width: 58mm !important;
-        margin: 0 !important;
-        font-family: 'Courier New', Courier, monospace !important;
-        font-size: 12px !important;
-        font-weight: 700 !important;
+        width: 48mm !important;
+        max-width: 48mm !important;
+        font-family: monospace !important;
+        font-size: 8px !important;
+        font-weight: 900 !important;
         color: #000 !important;
-        background: #fff !important;
-        line-height: 1.2 !important;
-        box-sizing: border-box !important;
-        display: block !important;
-        text-align: left !important;
-        padding: 1mm !important;
+        line-height: 1.1 !important;
+        padding: 0 !important;
       }
       #ticket-print-area .ticket-paper {
-        width: 100% !important;
-        color: #000 !important;
+        width: 48mm !important;
+        max-width: 48mm !important;
       }
       #ticket-print-area .ticket-header {
         text-align: center !important;
-        margin-bottom: 2mm !important;
-        padding-bottom: 1mm !important;
-        border-bottom: 1px solid #000 !important;
-      }
-      #ticket-print-area .ticket-title {
-        font-size: 14px !important;
+        font-size: 10px !important;
         font-weight: 900 !important;
-        color: #000 !important;
-        letter-spacing: 0.5px !important;
+        border-bottom: 1px solid #000 !important;
+        padding-bottom: 1mm !important;
+        margin-bottom: 1mm !important;
       }
       #ticket-print-area .ticket-info {
-        font-size: 10px !important;
-        font-weight: 700 !important;
-        color: #000 !important;
         text-align: center !important;
-        margin: 1mm 0 !important;
+        font-size: 7px !important;
+        margin-bottom: 1mm !important;
       }
       #ticket-print-area .ticket-productos {
-        padding: 1mm 0 !important;
         border-top: 1px solid #000 !important;
         border-bottom: 1px solid #000 !important;
-        margin: 1mm 0 !important;
+        padding: 1mm 0 !important;
       }
       #ticket-print-area .ticket-producto {
-        display: block !important;
-        margin-bottom: 1mm !important;
-        color: #000 !important;
-        font-weight: 700 !important;
-      }
-      #ticket-print-area .prod-nombre {
-        display: block !important;
-        font-size: 11px !important;
-        font-weight: 900 !important;
-        color: #000 !important;
-      }
-      #ticket-print-area .prod-detalle {
-        display: block !important;
-        font-size: 10px !important;
-        font-weight: 700 !important;
-        color: #000 !important;
-        text-align: right !important;
+        font-size: 8px !important;
+        margin-bottom: 0.5mm !important;
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
       }
       #ticket-print-area .ticket-total {
-        font-size: 14px !important;
-        font-weight: 900 !important;
-        color: #000 !important;
         text-align: right !important;
-        margin: 2mm 0 1mm 0 !important;
+        font-size: 12px !important;
+        font-weight: 900 !important;
         border-top: 1px solid #000 !important;
         padding-top: 1mm !important;
-      }
-      #ticket-print-area .ticket-footer {
-        font-size: 10px !important;
-        font-weight: 700 !important;
-        color: #000 !important;
-        text-align: center !important;
         margin-top: 1mm !important;
       }
     }
-    @page { size: 58mm auto; margin: 0; }
+    @page { size: 48mm auto; margin: 0; }
   `;
   document.head.appendChild(style);
 
