@@ -959,16 +959,6 @@ async function completarVenta() {
     alert('Venta registrada exitosamente');
     await mostrarTicket(result.id);
 
-    // Intento de impresión automática (limitación del navegador: puede mostrar diálogo)
-    if (getAutoPrintEnabled()) {
-      try {
-        // Pequeño delay para asegurar render del contenido
-        setTimeout(() => {
-          try { imprimirTicket(); } catch {}
-        }, 150);
-      } catch {}
-    }
-
     cancelarVenta();
 
     await cargarProductos();
