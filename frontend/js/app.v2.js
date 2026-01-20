@@ -12,6 +12,25 @@ let usuarioActual = null;
 let ventaBusqueda = '';
 let ventaCategoria = 'Todas';
 
+function getAutoPrintEnabled() {
+  const checkbox = qs('auto-print');
+  if (checkbox) {
+    return checkbox.checked;
+  }
+  const raw = localStorage.getItem('autoPrint');
+  return raw === null ? true : raw === 'true';
+}
+
+function wireAutoPrintSetting() {
+  const checkbox = qs('auto-print');
+  if (!checkbox) return;
+  const raw = localStorage.getItem('autoPrint');
+  if (raw !== null) checkbox.checked = raw === 'true';
+  checkbox.addEventListener('change', () => {
+    localStorage.setItem('autoPrint', checkbox.checked ? 'true' : 'false');
+  });
+}
+
 // -------------------- Helpers --------------------
 
 async function fetchJson(url, options = {}) {
@@ -125,6 +144,7 @@ function configurarUI() {
 
   // Estado inicial de lista de venta
   actualizarListaVenta();
+  wireAutoPrintSetting();
 }
 
 async function cerrarSesion() {
@@ -624,6 +644,11 @@ function setupVentaPOSHandlers() {
   }
 }
 
+function getCartQty(productId) {
+  const item = productosVenta.find((p) => p.id === Number(productId));
+  return item ? Number(item.cantidad || 0) : 0;
+}
+
 function getCategoriasProductos() {
   const set = new Set();
   (productos || []).forEach((p) => {
@@ -680,15 +705,22 @@ function renderVentaCatalogo() {
       const stock = Number(p.stock || 0);
       const disabled = stock <= 0 ? 'disabled' : '';
       const stockTxt = stock > 0 ? `Stock: ${stock}` : 'Sin stock';
+      const inCart = getCartQty(p.id);
+      const canSub = inCart > 0;
+      const canAdd = stock > 0 && inCart < stock;
       return `
         <div class="venta-producto-card">
-          <div class="venta-producto-nombre">${p.nombre}</div>
+          <div class="venta-producto-top">
+            <div class="venta-producto-nombre">${p.nombre}</div>
+            ${inCart > 0 ? `<div class="venta-badge" title="En carrito">${inCart}</div>` : ''}
+          </div>
           <div class="venta-producto-meta">
             <div>${formatMoney(p.precio)}</div>
             <div class="venta-stock">${stockTxt}</div>
           </div>
           <div class="venta-producto-actions">
-            <button class="venta-add-btn" ${disabled} onclick="agregarProductoVentaRapido(${p.id})">+ Agregar</button>
+            <button class="venta-step-btn" ${canSub ? '' : 'disabled'} onclick="quitarProductoVentaRapido(${p.id})">-</button>
+            <button class="venta-add-btn" ${canAdd ? '' : 'disabled'} onclick="agregarProductoVentaRapido(${p.id})">+ Agregar</button>
           </div>
         </div>
       `;
@@ -702,6 +734,12 @@ function renderVentaPOS(_force = false) {
   setupVentaPOSHandlers();
   renderVentaCategorias();
   renderVentaCatalogo();
+
+  // UX: enfocar búsqueda para trabajador
+  if (usuarioActual && usuarioActual.rol === 'trabajador') {
+    const buscar = qs('venta-buscar');
+    if (buscar) setTimeout(() => buscar.focus(), 50);
+  }
 }
 
 function agregarProductoVentaPorId(productoId, cantidad) {
@@ -739,6 +777,12 @@ function agregarProductoVentaPorId(productoId, cantidad) {
 
 function agregarProductoVentaRapido(productoId) {
   agregarProductoVentaPorId(productoId, 1);
+}
+
+function quitarProductoVentaRapido(productoId) {
+  const idx = productosVenta.findIndex((p) => p.id === Number(productoId));
+  if (idx === -1) return;
+  cambiarCantidadVenta(idx, -1);
 }
 
 function cambiarCantidadVenta(index, delta) {
@@ -914,6 +958,17 @@ async function completarVenta() {
 
     alert('Venta registrada exitosamente');
     await mostrarTicket(result.id);
+
+    // Intento de impresión automática (limitación del navegador: puede mostrar diálogo)
+    if (getAutoPrintEnabled()) {
+      try {
+        // Pequeño delay para asegurar render del contenido
+        setTimeout(() => {
+          try { imprimirTicket(); } catch {}
+        }, 150);
+      } catch {}
+    }
+
     cancelarVenta();
 
     await cargarProductos();
@@ -943,6 +998,7 @@ function cancelarVenta() {
 
 window.agregarProductoVenta = agregarProductoVenta;
 window.agregarProductoVentaRapido = agregarProductoVentaRapido;
+window.quitarProductoVentaRapido = quitarProductoVentaRapido;
 window.cambiarCantidadVenta = cambiarCantidadVenta;
 window.setCantidadVenta = setCantidadVenta;
 window.eliminarProductoVenta = eliminarProductoVenta;
@@ -1105,7 +1161,18 @@ function imprimirTicket() {
     </html>
   `);
   ventana.document.close();
-  ventana.print();
+
+  // Intentar imprimir automáticamente al cargar.
+  ventana.onload = () => {
+    try {
+      ventana.focus();
+      ventana.print();
+    } catch {}
+  };
+  // Cerrar después de imprimir (si el navegador lo permite)
+  ventana.onafterprint = () => {
+    try { ventana.close(); } catch {}
+  };
 }
 
 window.mostrarTicket = mostrarTicket;
