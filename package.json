@@ -1,0 +1,33 @@
+{
+  "name": "sistema-obleas-inventario",
+  "version": "1.0.0",
+  "description": "Sistema de gestión de inventario y ventas para negocio de obleas y botanas",
+  "main": "server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "nodemon backend/server.js"
+  },
+  "keywords": [
+    "inventario",
+    "ventas",
+    "obleas",
+    "tickets"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
+    "bcryptjs": "^3.0.3",
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "express-session": "^1.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "pdfkit": "^0.13.0",
+    "serverless-http": "^3.2.0",
+    "sqlite3": "^5.1.6"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

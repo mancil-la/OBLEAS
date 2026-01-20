@@ -1,0 +1,969 @@
+// En Netlify (prod y netlify dev) la API vive en /api gracias a netlify.toml
+const API_URL = '/api';
+
+// Estado global
+let productos = [];
+let trabajadores = [];
+let productosVenta = [];
+let totalVenta = 0;
+let usuarioActual = null;
+
+// -------------------- Helpers --------------------
+
+async function fetchJson(url, options = {}) {
+  const token = localStorage.getItem('token');
+
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers || {})
+    }
+  });
+
+  // Si la sesión expiró, manda al login
+  if (response.status === 401) {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = 'login.html';
+    return null;
+  }
+
+  const text = await response.text();
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = text;
+  }
+
+  if (!response.ok) {
+    const message = (data && data.error) ? data.error : `Error HTTP ${response.status}`;
+    const err = new Error(message);
+    err.status = response.status;
+    err.data = data;
+    throw err;
+  }
+
+  return data;
+}
+
+function formatMoney(value) {
+  const num = Number(value || 0);
+  return `$${num.toFixed(2)}`;
+}
+
+function qs(id) {
+  return document.getElementById(id);
+}
+
+// -------------------- Auth --------------------
+
+document.addEventListener('DOMContentLoaded', () => {
+  boot();
+});
+
+async function boot() {
+  try {
+    usuarioActual = await fetchJson(`${API_URL}/auth/me`, { method: 'GET' });
+    if (!usuarioActual) return;
+
+    configurarNavegacion();
+    configurarUI();
+
+    await inicializarDatos();
+
+    // Mostrar dashboard por defecto
+    mostrarSeccion('dashboard');
+  } catch (e) {
+    console.error('Error boot:', e);
+    window.location.href = 'login.html';
+  }
+}
+
+function configurarUI() {
+  // Header user info
+  const fechaEl = qs('fecha-actual');
+  if (fechaEl) {
+    const rol = usuarioActual.rol === 'admin' ? 'Administrador' : 'Trabajador';
+    const fecha = new Date();
+    const opciones = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    fechaEl.innerHTML = `
+      <div style="text-align:right;">
+        <div><strong>${usuarioActual.nombre}</strong> (${rol})</div>
+        <div style="font-size:0.85rem;margin-top:0.25rem;color:#64748b;">${fecha.toLocaleDateString('es-ES', opciones)}</div>
+      </div>
+    `;
+  }
+
+  // Menú por rol
+  if (usuarioActual.rol !== 'admin') {
+    document.querySelectorAll('.menu-item').forEach((item) => {
+      const section = item.dataset.section;
+      if (section === 'productos' || section === 'trabajadores' || section === 'reportes') {
+        item.style.display = 'none';
+      }
+    });
+
+    // También ocultar filtros por trabajador en historial
+    const filtroTrabajador = qs('filtro-trabajador');
+    if (filtroTrabajador) {
+      filtroTrabajador.parentElement && (filtroTrabajador.parentElement.style.display = 'none');
+    }
+  }
+
+  // Estado inicial de lista de venta
+  actualizarListaVenta();
+}
+
+async function cerrarSesion() {
+  try {
+    await fetchJson(`${API_URL}/auth/logout`, { method: 'POST' });
+  } catch (e) {
+    // igual redirigimos
+  }
+  localStorage.removeItem('user');
+  localStorage.removeItem('token');
+  window.location.href = 'login.html';
+}
+
+// Exponer para onclick en HTML
+window.cerrarSesion = cerrarSesion;
+
+// -------------------- Navegación --------------------
+
+function configurarNavegacion() {
+  const menuItems = document.querySelectorAll('.menu-item');
+
+  menuItems.forEach((item) => {
+    item.addEventListener('click', (e) => {
+      e.preventDefault();
+      const sectionId = item.dataset.section;
+
+      // Evitar que un trabajador llegue a pantallas admin
+      if (usuarioActual.rol !== 'admin' && (sectionId === 'productos' || sectionId === 'trabajadores' || sectionId === 'reportes')) {
+        mostrarSeccion('dashboard');
+        return;
+      }
+
+      menuItems.forEach((mi) => mi.classList.remove('active'));
+      item.classList.add('active');
+
+      mostrarSeccion(sectionId);
+    });
+  });
+}
+
+function mostrarSeccion(sectionId) {
+  document.querySelectorAll('.content-section').forEach((section) => {
+    section.classList.remove('active');
+  });
+
+  const section = document.getElementById(sectionId);
+  if (section) section.classList.add('active');
+
+  const titulos = {
+    dashboard: 'Dashboard',
+    ventas: 'Nueva Venta',
+    productos: 'Inventario de Productos',
+    historial: 'Historial de Ventas',
+    trabajadores: 'Gestión de Trabajadores',
+    reportes: 'Reportes'
+  };
+
+  const title = qs('page-title');
+  if (title) title.textContent = titulos[sectionId] || '';
+
+  // Cargar datos según sección
+  switch (sectionId) {
+    case 'dashboard':
+      cargarDashboard();
+      break;
+    case 'ventas':
+      cargarSelectTrabajadores();
+      cargarSelectProductos();
+      actualizarListaVenta();
+      break;
+    case 'productos':
+      cargarTablaProductos();
+      break;
+    case 'historial':
+      if (usuarioActual.rol !== 'admin') {
+        // Fuerza que el filtro sea el propio (aunque backend ya lo limita)
+        const ft = qs('filtro-trabajador');
+        if (ft) {
+          ft.value = String(usuarioActual.id);
+          ft.disabled = true;
+        }
+      }
+      cargarTablaVentas();
+      cargarFiltroTrabajadores();
+      break;
+    case 'trabajadores':
+      cargarTablaTrabajadores();
+      break;
+    case 'reportes':
+      // Nada automático
+      break;
+  }
+}
+
+// -------------------- Datos iniciales --------------------
+
+async function inicializarDatos() {
+  await cargarProductos();
+  await cargarTrabajadores();
+}
+
+// -------------------- Dashboard --------------------
+
+async function cargarDashboard() {
+  try {
+    const data = await fetchJson(`${API_URL}/reportes/resumen`, { method: 'GET' });
+    if (!data) return;
+
+    qs('stat-productos').textContent = data.total_productos || 0;
+    qs('stat-trabajadores').textContent = data.trabajadores_activos || 0;
+    qs('stat-ventas-hoy').textContent = data.ventas_hoy || 0;
+    qs('stat-total-hoy').textContent = formatMoney(data.total_hoy || 0);
+
+    // Gráficos simples con divs
+    if (usuarioActual.rol === 'admin') {
+      await cargarGraficoVentasTrabajador();
+    } else {
+      const cont = qs('ventas-trabajador-chart');
+      if (cont) cont.innerHTML = '<p class="text-center text-light">Disponible solo para admin</p>';
+    }
+
+    await cargarGraficoProductosVendidos();
+  } catch (e) {
+    console.error('Dashboard:', e);
+  }
+}
+
+async function cargarGraficoVentasTrabajador() {
+  try {
+    const data = await fetchJson(`${API_URL}/reportes/ventas-por-trabajador`, { method: 'GET' });
+    if (!data) return;
+
+    const container = qs('ventas-trabajador-chart');
+    if (!container) return;
+
+    container.innerHTML = '';
+    data.forEach((item) => {
+      const div = document.createElement('div');
+      div.className = 'reporte-item';
+      div.innerHTML = `
+        <h4>${item.nombre}</h4>
+        <p>Ventas: ${item.total_ventas} | Total: ${formatMoney(item.total_vendido)}</p>
+      `;
+      container.appendChild(div);
+    });
+  } catch (e) {
+    console.error('Grafico ventas trabajador:', e);
+  }
+}
+
+async function cargarGraficoProductosVendidos() {
+  try {
+    const data = await fetchJson(`${API_URL}/reportes/productos-mas-vendidos`, { method: 'GET' });
+    if (!data) return;
+
+    const container = qs('productos-vendidos-chart');
+    if (!container) return;
+
+    container.innerHTML = '';
+    data.forEach((item) => {
+      const div = document.createElement('div');
+      div.className = 'reporte-item';
+      div.innerHTML = `
+        <h4>${item.nombre}</h4>
+        <p>Cantidad: ${item.cantidad_vendida} | Total: ${formatMoney(item.total_vendido)}</p>
+      `;
+      container.appendChild(div);
+    });
+  } catch (e) {
+    console.error('Grafico productos vendidos:', e);
+  }
+}
+
+// -------------------- Productos --------------------
+
+async function cargarProductos() {
+  try {
+    const data = await fetchJson(`${API_URL}/productos`, { method: 'GET' });
+    if (!data) return [];
+    productos = data;
+    return productos;
+  } catch (e) {
+    console.error('Productos:', e);
+    productos = [];
+    return [];
+  }
+}
+
+async function cargarTablaProductos() {
+  await cargarProductos();
+
+  const tbody = qs('productos-tabla');
+  if (!tbody) return;
+
+  if (!productos.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center">No hay productos registrados</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = productos
+    .map((p) => `
+      <tr>
+        <td>${p.id}</td>
+        <td>${p.nombre}</td>
+        <td>${p.categoria}</td>
+        <td>${formatMoney(p.precio)}</td>
+        <td>${p.stock}</td>
+        <td>
+          <button class="btn btn-sm btn-primary" onclick="editarProducto(${p.id})"><i class="fas fa-edit"></i></button>
+          <button class="btn btn-sm btn-secondary" onclick="ajustarStockProducto(${p.id}, 'add')" title="Agregar stock"><i class="fas fa-plus"></i></button>
+          <button class="btn btn-sm btn-secondary" onclick="ajustarStockProducto(${p.id}, 'sub')" title="Quitar stock"><i class="fas fa-minus"></i></button>
+          <button class="btn btn-sm btn-danger" onclick="eliminarProducto(${p.id})"><i class="fas fa-trash"></i></button>
+        </td>
+      </tr>
+    `)
+    .join('');
+}
+
+async function ajustarStockProducto(productoId, mode) {
+  const producto = productos.find((p) => p.id === productoId);
+  if (!producto) {
+    alert('Producto no encontrado');
+    return;
+  }
+
+  const label = mode === 'sub' ? 'quitar' : 'agregar';
+  const raw = prompt(`¿Cuántas unidades deseas ${label} al stock de "${producto.nombre}"?`, '1');
+  if (raw === null) return;
+
+  const qty = Number(raw);
+  if (!qty || Number.isNaN(qty) || qty <= 0) {
+    alert('Cantidad inválida');
+    return;
+  }
+
+  const delta = mode === 'sub' ? -Math.abs(qty) : Math.abs(qty);
+
+  try {
+    await fetchJson(`${API_URL}/productos/${productoId}/ajustar-stock`, {
+      method: 'POST',
+      body: JSON.stringify({ delta })
+    });
+
+    await cargarProductos();
+    await cargarTablaProductos();
+    cargarSelectProductos();
+  } catch (e) {
+    alert(e.message || 'Error al ajustar stock');
+  }
+}
+
+function mostrarModalProducto(id = null) {
+  const modal = qs('modal-producto');
+  const titulo = qs('modal-titulo');
+
+  if (!modal || !titulo) return;
+
+  if (id) {
+    titulo.textContent = 'Editar Producto';
+    const producto = productos.find((p) => p.id === id);
+    if (producto) {
+      qs('producto-id').value = producto.id;
+      qs('producto-nombre').value = producto.nombre;
+      qs('producto-categoria').value = producto.categoria;
+      qs('producto-precio').value = producto.precio;
+      qs('producto-stock').value = producto.stock;
+    }
+  } else {
+    titulo.textContent = 'Nuevo Producto';
+    qs('producto-id').value = '';
+    qs('producto-nombre').value = '';
+    qs('producto-categoria').value = 'Obleas';
+    qs('producto-precio').value = '';
+    qs('producto-stock').value = '';
+  }
+
+  modal.classList.add('active');
+}
+
+function cerrarModalProducto() {
+  const modal = qs('modal-producto');
+  if (modal) modal.classList.remove('active');
+}
+
+async function guardarProducto() {
+  const id = qs('producto-id').value;
+  const nombre = qs('producto-nombre').value.trim();
+  const categoria = qs('producto-categoria').value;
+  const precio = Number(qs('producto-precio').value);
+  const stock = Number(qs('producto-stock').value);
+
+  if (!nombre || Number.isNaN(precio) || Number.isNaN(stock)) {
+    alert('Por favor complete todos los campos correctamente');
+    return;
+  }
+
+  try {
+    const url = id ? `${API_URL}/productos/${id}` : `${API_URL}/productos`;
+    const method = id ? 'PUT' : 'POST';
+
+    await fetchJson(url, {
+      method,
+      body: JSON.stringify({ nombre, categoria, precio, stock })
+    });
+
+    alert(`Producto ${id ? 'actualizado' : 'creado'} exitosamente`);
+    cerrarModalProducto();
+    await cargarTablaProductos();
+  } catch (e) {
+    alert(e.message || 'Error al guardar el producto');
+  }
+}
+
+function editarProducto(id) {
+  mostrarModalProducto(id);
+}
+
+async function eliminarProducto(id) {
+  if (!confirm('¿Está seguro de eliminar este producto?')) return;
+  try {
+    await fetchJson(`${API_URL}/productos/${id}`, { method: 'DELETE' });
+    alert('Producto eliminado exitosamente');
+    await cargarTablaProductos();
+  } catch (e) {
+    alert(e.message || 'Error al eliminar el producto');
+  }
+}
+
+// Exponer
+window.mostrarModalProducto = mostrarModalProducto;
+window.cerrarModalProducto = cerrarModalProducto;
+window.guardarProducto = guardarProducto;
+window.editarProducto = editarProducto;
+window.eliminarProducto = eliminarProducto;
+window.ajustarStockProducto = ajustarStockProducto;
+
+// -------------------- Trabajadores --------------------
+
+async function cargarTrabajadores() {
+  // Admin: puede traer todos. Trabajador: el backend devuelve 403 si intenta listar.
+  try {
+    const data = await fetchJson(`${API_URL}/trabajadores`, { method: 'GET' });
+    if (!data) return [];
+    trabajadores = data;
+    return trabajadores;
+  } catch (e) {
+    if (e && e.status === 403) {
+      trabajadores = [usuarioActual];
+      return trabajadores;
+    }
+    console.error('Trabajadores:', e);
+    trabajadores = [usuarioActual];
+    return trabajadores;
+  }
+}
+
+async function cargarTablaTrabajadores() {
+  await cargarTrabajadores();
+
+  const tbody = qs('trabajadores-tabla');
+  if (!tbody) return;
+
+  tbody.innerHTML = trabajadores
+    .map((t) => `
+      <tr>
+        <td>${t.id}</td>
+        <td>${t.nombre}</td>
+        <td>${t.usuario || '-'}</td>
+        <td>${t.rol || 'trabajador'}</td>
+        <td>${t.telefono || '-'}</td>
+        <td>
+          <span class="badge ${t.activo ? 'badge-success' : 'badge-danger'}">${t.activo ? 'Activo' : 'Inactivo'}</span>
+        </td>
+        <td>
+          <button class="btn btn-sm btn-primary" onclick="mostrarModalTrabajador(${t.id})" title="Editar"><i class="fas fa-edit"></i></button>
+          <button class="btn btn-sm btn-danger" onclick="eliminarTrabajador(${t.id})" title="Desactivar"><i class="fas fa-user-slash"></i></button>
+        </td>
+      </tr>
+    `)
+    .join('');
+}
+
+function mostrarModalTrabajador(id = null) {
+  const modal = qs('modal-trabajador');
+  const titulo = qs('modal-trabajador-titulo');
+  if (!modal || !titulo) return;
+
+  const isEdit = id !== null && id !== undefined;
+  const trabajador = isEdit ? trabajadores.find((t) => t.id === id) : null;
+
+  if (isEdit && !trabajador) {
+    alert('Trabajador no encontrado');
+    return;
+  }
+
+  titulo.textContent = isEdit ? 'Editar Trabajador' : 'Nuevo Trabajador';
+
+  qs('trabajador-id').value = isEdit ? trabajador.id : '';
+  qs('trabajador-nombre').value = isEdit ? (trabajador.nombre || '') : '';
+  qs('trabajador-usuario').value = isEdit ? (trabajador.usuario || '') : '';
+  qs('trabajador-password').value = '';
+  qs('trabajador-rol').value = isEdit ? (trabajador.rol || 'trabajador') : 'trabajador';
+  qs('trabajador-telefono').value = isEdit ? (trabajador.telefono || '') : '';
+  qs('trabajador-activo').value = isEdit ? (trabajador.activo ? 1 : 0) : 1;
+
+  modal.classList.add('active');
+}
+
+function cerrarModalTrabajador() {
+  const modal = qs('modal-trabajador');
+  if (modal) modal.classList.remove('active');
+}
+
+async function guardarTrabajador() {
+  const id = qs('trabajador-id').value;
+  const nombre = qs('trabajador-nombre').value.trim();
+  const usuario = qs('trabajador-usuario').value.trim();
+  const password = qs('trabajador-password').value;
+  const rol = qs('trabajador-rol').value;
+  const telefono = qs('trabajador-telefono').value.trim();
+  const activo = Number(qs('trabajador-activo').value);
+
+  if (!nombre) {
+    alert('Por favor ingrese el nombre del trabajador');
+    return;
+  }
+
+  if (!usuario) {
+    alert('Por favor ingrese el usuario (login)');
+    return;
+  }
+
+  try {
+    if (!id) {
+      if (!password) {
+        alert('Para crear un trabajador se requiere contraseña');
+        return;
+      }
+
+      await fetchJson(`${API_URL}/trabajadores`, {
+        method: 'POST',
+        body: JSON.stringify({ nombre, usuario, password, rol, telefono, activo })
+      });
+      alert('Trabajador creado exitosamente');
+    } else {
+      const payload = { nombre, usuario, rol, telefono, activo };
+      if (password) payload.password = password;
+
+      await fetchJson(`${API_URL}/trabajadores/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload)
+      });
+      alert('Trabajador actualizado exitosamente');
+    }
+
+    cerrarModalTrabajador();
+    await cargarTablaTrabajadores();
+  } catch (e) {
+    alert(e.message || 'Error al guardar el trabajador');
+  }
+}
+
+async function eliminarTrabajador(id) {
+  if (!confirm('¿Seguro que deseas desactivar este trabajador? (Ya no podrá iniciar sesión)')) return;
+
+  try {
+    await fetchJson(`${API_URL}/trabajadores/${id}`, { method: 'DELETE' });
+    alert('Trabajador desactivado');
+    await cargarTablaTrabajadores();
+  } catch (e) {
+    alert(e.message || 'Error al desactivar el trabajador');
+  }
+}
+
+window.mostrarModalTrabajador = mostrarModalTrabajador;
+window.cerrarModalTrabajador = cerrarModalTrabajador;
+window.guardarTrabajador = guardarTrabajador;
+window.eliminarTrabajador = eliminarTrabajador;
+
+// -------------------- Ventas --------------------
+
+function cargarSelectTrabajadores() {
+  const select = qs('trabajador-select');
+  if (!select) return;
+
+  if (usuarioActual.rol === 'trabajador') {
+    select.innerHTML = `<option value="${usuarioActual.id}" selected>${usuarioActual.nombre}</option>`;
+    select.disabled = true;
+  } else {
+    // Admin: necesita lista
+    select.disabled = false;
+    const activos = trabajadores.filter((t) => t.activo);
+    select.innerHTML = '<option value="">Seleccionar trabajador...</option>' + activos.map((t) => `<option value="${t.id}">${t.nombre}</option>`).join('');
+  }
+}
+
+function cargarSelectProductos() {
+  const select = qs('producto-select');
+  if (!select) return;
+
+  const disponibles = productos.filter((p) => Number(p.stock) > 0);
+  select.innerHTML = '<option value="">Seleccionar producto...</option>' + disponibles.map((p) => `<option value="${p.id}">${p.nombre} - ${formatMoney(p.precio)} (Stock: ${p.stock})</option>`).join('');
+}
+
+function agregarProductoVenta() {
+  const productoId = Number(qs('producto-select').value);
+  const cantidad = Number(qs('cantidad-input').value);
+
+  if (!productoId || !cantidad || cantidad <= 0) {
+    alert('Por favor seleccione un producto y cantidad válida');
+    return;
+  }
+
+  const producto = productos.find((p) => p.id === productoId);
+  if (!producto) {
+    alert('Producto no encontrado');
+    return;
+  }
+
+  if (cantidad > producto.stock) {
+    alert(`Stock insuficiente. Disponible: ${producto.stock}`);
+    return;
+  }
+
+  const existente = productosVenta.find((p) => p.id === productoId);
+  if (existente) {
+    const nuevaCantidad = existente.cantidad + cantidad;
+    if (nuevaCantidad > producto.stock) {
+      alert(`Stock insuficiente. Ya tiene ${existente.cantidad} en el carrito. Disponible: ${producto.stock}`);
+      return;
+    }
+    existente.cantidad = nuevaCantidad;
+  } else {
+    productosVenta.push({
+      id: producto.id,
+      nombre: producto.nombre,
+      precio: Number(producto.precio),
+      cantidad
+    });
+  }
+
+  actualizarListaVenta();
+  qs('producto-select').value = '';
+  qs('cantidad-input').value = '1';
+}
+
+function eliminarProductoVenta(index) {
+  productosVenta.splice(index, 1);
+  actualizarListaVenta();
+}
+
+function actualizarListaVenta() {
+  const lista = qs('productos-venta-lista');
+  if (!lista) return;
+
+  if (!productosVenta.length) {
+    lista.innerHTML = '<p class="text-center text-light">No hay productos agregados</p>';
+    totalVenta = 0;
+  } else {
+    lista.innerHTML = productosVenta.map((p, index) => {
+      const subtotal = p.precio * p.cantidad;
+      return `
+        <div class="producto-venta-item">
+          <div class="producto-venta-info">
+            <h4>${p.nombre}</h4>
+            <p>${p.cantidad} x ${formatMoney(p.precio)} = ${formatMoney(subtotal)}</p>
+          </div>
+          <button class="btn btn-sm btn-danger" onclick="eliminarProductoVenta(${index})"><i class="fas fa-trash"></i></button>
+        </div>
+      `;
+    }).join('');
+
+    totalVenta = productosVenta.reduce((sum, p) => sum + (p.precio * p.cantidad), 0);
+  }
+
+  const totalEl = qs('total-venta');
+  if (totalEl) totalEl.textContent = totalVenta.toFixed(2);
+}
+
+async function completarVenta() {
+  const trabajadorId = Number(qs('trabajador-select').value);
+
+  if (!trabajadorId) {
+    alert('Por favor seleccione un trabajador');
+    return;
+  }
+
+  if (!productosVenta.length) {
+    alert('Por favor agregue al menos un producto');
+    return;
+  }
+
+  try {
+    const payload = {
+      trabajador_id: trabajadorId,
+      productos: productosVenta.map((p) => ({ id: p.id, precio: p.precio, cantidad: p.cantidad }))
+    };
+
+    const result = await fetchJson(`${API_URL}/ventas`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+
+    alert('Venta registrada exitosamente');
+    await mostrarTicket(result.id);
+    cancelarVenta();
+
+    await cargarProductos();
+    cargarSelectProductos();
+  } catch (e) {
+    alert(e.message || 'Error al completar la venta');
+  }
+}
+
+function cancelarVenta() {
+  productosVenta = [];
+  totalVenta = 0;
+  const ts = qs('trabajador-select');
+  if (ts && usuarioActual.rol !== 'trabajador') ts.value = '';
+  const ps = qs('producto-select');
+  if (ps) ps.value = '';
+  const ci = qs('cantidad-input');
+  if (ci) ci.value = '1';
+  actualizarListaVenta();
+}
+
+window.agregarProductoVenta = agregarProductoVenta;
+window.eliminarProductoVenta = eliminarProductoVenta;
+window.completarVenta = completarVenta;
+window.cancelarVenta = cancelarVenta;
+
+// -------------------- Historial --------------------
+
+async function cargarTablaVentas(filtros = {}) {
+  try {
+    let url = `${API_URL}/ventas?`;
+    if (filtros.trabajador_id) url += `trabajador_id=${encodeURIComponent(filtros.trabajador_id)}&`;
+    if (filtros.fecha_inicio) url += `fecha_inicio=${encodeURIComponent(filtros.fecha_inicio)}&`;
+    if (filtros.fecha_fin) url += `fecha_fin=${encodeURIComponent(filtros.fecha_fin)}&`;
+
+    const ventas = await fetchJson(url, { method: 'GET' });
+    if (!ventas) return;
+
+    const tbody = qs('ventas-tabla');
+    if (!tbody) return;
+
+    if (!ventas.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center">No hay ventas registradas</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = ventas.map((v) => {
+      const fecha = new Date(v.fecha).toLocaleString('es-ES');
+      return `
+        <tr>
+          <td>${v.id}</td>
+          <td>${v.trabajador_nombre}</td>
+          <td>${formatMoney(v.total)}</td>
+          <td>${fecha}</td>
+          <td>
+            <button class="btn btn-sm btn-primary" onclick="verDetalleVenta(${v.id})"><i class="fas fa-eye"></i></button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  } catch (e) {
+    console.error('Historial:', e);
+  }
+}
+
+function cargarFiltroTrabajadores() {
+  const select = qs('filtro-trabajador');
+  if (!select) return;
+
+  if (usuarioActual.rol !== 'admin') {
+    select.innerHTML = `<option value="${usuarioActual.id}">${usuarioActual.nombre}</option>`;
+    select.disabled = true;
+    return;
+  }
+
+  select.disabled = false;
+  select.innerHTML = '<option value="">Todos los trabajadores</option>' + trabajadores.map((t) => `<option value="${t.id}">${t.nombre}</option>`).join('');
+}
+
+function filtrarVentas() {
+  const filtros = {
+    trabajador_id: qs('filtro-trabajador') ? qs('filtro-trabajador').value : '',
+    fecha_inicio: qs('filtro-fecha-inicio') ? qs('filtro-fecha-inicio').value : '',
+    fecha_fin: qs('filtro-fecha-fin') ? qs('filtro-fecha-fin').value : ''
+  };
+  cargarTablaVentas(filtros);
+}
+
+async function verDetalleVenta(id) {
+  await mostrarTicket(id);
+}
+
+window.filtrarVentas = filtrarVentas;
+window.verDetalleVenta = verDetalleVenta;
+
+// -------------------- Ticket --------------------
+
+async function mostrarTicket(ventaId) {
+  try {
+    const venta = await fetchJson(`${API_URL}/ventas/${ventaId}`, { method: 'GET' });
+    if (!venta) return;
+
+    const fecha = new Date(venta.fecha).toLocaleString('es-ES');
+
+    let ticketHTML = `
+      <div class="ticket-header">
+        <h2>Obleas & Botanas</h2>
+        <p>Sistema de Ventas</p>
+      </div>
+      <div class="ticket-info">
+        <p><strong>Ticket #:</strong> ${venta.id}</p>
+        <p><strong>Trabajador:</strong> ${venta.trabajador_nombre}</p>
+        <p><strong>Fecha:</strong> ${fecha}</p>
+      </div>
+      <div class="ticket-productos">
+    `;
+
+    (venta.detalles || []).forEach((d) => {
+      ticketHTML += `
+        <div class="ticket-producto">
+          <div>
+            <div>${d.producto_nombre}</div>
+            <div>${d.cantidad} x ${formatMoney(d.precio_unitario)}</div>
+          </div>
+          <div>${formatMoney(d.subtotal)}</div>
+        </div>
+      `;
+    });
+
+    ticketHTML += `
+      </div>
+      <div class="ticket-total"><p>TOTAL: ${formatMoney(venta.total)}</p></div>
+      <div class="ticket-footer"><p>¡Gracias por su compra!</p></div>
+    `;
+
+    const cont = qs('ticket-contenido');
+    if (cont) cont.innerHTML = ticketHTML;
+
+    const modal = qs('modal-ticket');
+    if (modal) modal.classList.add('active');
+  } catch (e) {
+    alert(e.message || 'Error al mostrar el ticket');
+  }
+}
+
+function cerrarModalTicket() {
+  const modal = qs('modal-ticket');
+  if (modal) modal.classList.remove('active');
+}
+
+function imprimirTicket() {
+  const contenido = qs('ticket-contenido') ? qs('ticket-contenido').innerHTML : '';
+  const ventana = window.open('', '', 'width=400,height=600');
+  ventana.document.write(`
+    <html>
+      <head>
+        <title>Ticket de Venta</title>
+        <style>
+          body { font-family: 'Courier New', monospace; padding: 20px; }
+          .ticket-header { text-align: center; margin-bottom: 20px; }
+          .ticket-info { margin-bottom: 20px; }
+          .ticket-productos { border-top: 2px dashed #000; border-bottom: 2px dashed #000; padding: 10px 0; }
+          .ticket-producto { display: flex; justify-content: space-between; margin-bottom: 10px; }
+          .ticket-total { font-weight: bold; font-size: 1.2em; text-align: right; margin-top: 10px; }
+          .ticket-footer { text-align: center; margin-top: 20px; border-top: 2px dashed #000; padding-top: 10px; }
+        </style>
+      </head>
+      <body>${contenido}</body>
+    </html>
+  `);
+  ventana.document.close();
+  ventana.print();
+}
+
+window.mostrarTicket = mostrarTicket;
+window.cerrarModalTicket = cerrarModalTicket;
+window.imprimirTicket = imprimirTicket;
+
+// -------------------- Reportes (admin) --------------------
+
+async function generarReporteTrabajadores() {
+  try {
+    const fechaInicio = qs('reporte-fecha-inicio').value;
+    const fechaFin = qs('reporte-fecha-fin').value;
+
+    let url = `${API_URL}/reportes/ventas-por-trabajador?`;
+    if (fechaInicio) url += `fecha_inicio=${encodeURIComponent(fechaInicio)}&`;
+    if (fechaFin) url += `fecha_fin=${encodeURIComponent(fechaFin)}&`;
+
+    const data = await fetchJson(url, { method: 'GET' });
+    if (!data) return;
+
+    const container = qs('reporte-trabajadores-resultado');
+    if (!container) return;
+
+    if (!data.length) {
+      container.innerHTML = '<p class="text-center">No hay datos para mostrar</p>';
+      return;
+    }
+
+    container.innerHTML = data.map((t) => `
+      <div class="reporte-item">
+        <h4>${t.nombre}</h4>
+        <p>Total Ventas: ${t.total_ventas}</p>
+        <p>Total Vendido: ${formatMoney(t.total_vendido)}</p>
+      </div>
+    `).join('');
+  } catch (e) {
+    alert(e.message || 'Error al generar el reporte');
+  }
+}
+
+async function generarReporteProductos() {
+  try {
+    const fechaInicio = qs('productos-fecha-inicio').value;
+    const fechaFin = qs('productos-fecha-fin').value;
+
+    let url = `${API_URL}/reportes/productos-mas-vendidos?`;
+    if (fechaInicio) url += `fecha_inicio=${encodeURIComponent(fechaInicio)}&`;
+    if (fechaFin) url += `fecha_fin=${encodeURIComponent(fechaFin)}&`;
+
+    const data = await fetchJson(url, { method: 'GET' });
+    if (!data) return;
+
+    const container = qs('reporte-productos-resultado');
+    if (!container) return;
+
+    if (!data.length) {
+      container.innerHTML = '<p class="text-center">No hay datos para mostrar</p>';
+      return;
+    }
+
+    container.innerHTML = data.map((p) => `
+      <div class="reporte-item">
+        <h4>${p.nombre}</h4>
+        <p>Categoría: ${p.categoria}</p>
+        <p>Cantidad Vendida: ${p.cantidad_vendida}</p>
+        <p>Total Vendido: ${formatMoney(p.total_vendido)}</p>
+      </div>
+    `).join('');
+  } catch (e) {
+    alert(e.message || 'Error al generar el reporte');
+  }
+}
+
+window.generarReporteTrabajadores = generarReporteTrabajadores;
+window.generarReporteProductos = generarReporteProductos;
