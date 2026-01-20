@@ -1076,13 +1076,10 @@ async function mostrarTicket(ventaId) {
     let ticketHTML = `
       <div class="ticket-paper">
         <div class="ticket-header">
-          <h2>Obleas & Botanas</h2>
-          <p>Sistema de Ventas</p>
+          <div class="ticket-title">OBLEAS & BOTANAS</div>
         </div>
         <div class="ticket-info">
-          <p><strong>Ticket #:</strong> ${venta.id}</p>
-          <p><strong>Trabajador:</strong> ${venta.trabajador_nombre}</p>
-          <p><strong>Fecha:</strong> ${fecha}</p>
+          <div>#${venta.id} | ${fecha}</div>
         </div>
         <div class="ticket-productos">
     `;
@@ -1090,19 +1087,16 @@ async function mostrarTicket(ventaId) {
     (venta.detalles || []).forEach((d) => {
       ticketHTML += `
         <div class="ticket-producto">
-          <div>
-            <div>${d.producto_nombre}</div>
-            <div>${d.cantidad} x ${formatMoney(d.precio_unitario)}</div>
-          </div>
-          <div>${formatMoney(d.subtotal)}</div>
+          <span class="prod-nombre">${d.producto_nombre}</span>
+          <span class="prod-detalle">${d.cantidad}x${formatMoney(d.precio_unitario)} = ${formatMoney(d.subtotal)}</span>
         </div>
       `;
     });
 
     ticketHTML += `
         </div>
-        <div class="ticket-total"><p>TOTAL: ${formatMoney(venta.total)}</p></div>
-        <div class="ticket-footer"><p>¡Gracias por su compra!</p></div>
+        <div class="ticket-total">TOTAL: ${formatMoney(venta.total)}</div>
+        <div class="ticket-footer">Gracias!</div>
       </div>
     `;
 
@@ -1142,10 +1136,16 @@ function imprimirTicket() {
   const style = document.createElement('style');
   style.innerHTML = `
     @media print {
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
       html, body {
         background: #fff !important;
-        color: #111 !important;
-        width: 100vw !important;
+        color: #000 !important;
+        width: 58mm !important;
+        min-width: 58mm !important;
+        max-width: 58mm !important;
         margin: 0 !important;
         padding: 0 !important;
       }
@@ -1153,41 +1153,84 @@ function imprimirTicket() {
         width: 58mm !important;
         min-width: 58mm !important;
         max-width: 58mm !important;
-        margin-left: auto !important;
-        margin-right: auto !important;
-        font-family: 'Courier New', monospace !important;
-        font-size: 11px !important;
-        color: #111 !important;
+        margin: 0 !important;
+        font-family: 'Courier New', Courier, monospace !important;
+        font-size: 12px !important;
+        font-weight: 700 !important;
+        color: #000 !important;
         background: #fff !important;
-        line-height: 1.25 !important;
+        line-height: 1.2 !important;
         box-sizing: border-box !important;
         display: block !important;
         text-align: left !important;
-        page-break-after: always !important;
+        padding: 1mm !important;
+      }
+      #ticket-print-area .ticket-paper {
+        width: 100% !important;
+        color: #000 !important;
       }
       #ticket-print-area .ticket-header {
-        font-size: 13px !important;
-        font-weight: bold !important;
         text-align: center !important;
-        margin-bottom: 8px !important;
+        margin-bottom: 2mm !important;
+        padding-bottom: 1mm !important;
+        border-bottom: 1px solid #000 !important;
       }
-      #ticket-print-area .ticket-total {
-        font-size: 12px !important;
-        font-weight: bold !important;
+      #ticket-print-area .ticket-title {
+        font-size: 14px !important;
+        font-weight: 900 !important;
+        color: #000 !important;
+        letter-spacing: 0.5px !important;
+      }
+      #ticket-print-area .ticket-info {
+        font-size: 10px !important;
+        font-weight: 700 !important;
+        color: #000 !important;
+        text-align: center !important;
+        margin: 1mm 0 !important;
+      }
+      #ticket-print-area .ticket-productos {
+        padding: 1mm 0 !important;
+        border-top: 1px solid #000 !important;
+        border-bottom: 1px solid #000 !important;
+        margin: 1mm 0 !important;
+      }
+      #ticket-print-area .ticket-producto {
+        display: block !important;
+        margin-bottom: 1mm !important;
+        color: #000 !important;
+        font-weight: 700 !important;
+      }
+      #ticket-print-area .prod-nombre {
+        display: block !important;
+        font-size: 11px !important;
+        font-weight: 900 !important;
+        color: #000 !important;
+      }
+      #ticket-print-area .prod-detalle {
+        display: block !important;
+        font-size: 10px !important;
+        font-weight: 700 !important;
         color: #000 !important;
         text-align: right !important;
-        margin-top: 8px !important;
+      }
+      #ticket-print-area .ticket-total {
+        font-size: 14px !important;
+        font-weight: 900 !important;
+        color: #000 !important;
+        text-align: right !important;
+        margin: 2mm 0 1mm 0 !important;
+        border-top: 1px solid #000 !important;
+        padding-top: 1mm !important;
       }
       #ticket-print-area .ticket-footer {
-        font-size: 11px !important;
-        color: #222 !important;
+        font-size: 10px !important;
+        font-weight: 700 !important;
+        color: #000 !important;
         text-align: center !important;
-        margin-top: 10px !important;
-        border-top: 1px dashed #111 !important;
-        padding-top: 6px !important;
+        margin-top: 1mm !important;
       }
     }
-    @page { size: 58mm auto; margin: 2mm; }
+    @page { size: 58mm auto; margin: 0; }
   `;
   document.head.appendChild(style);
 
