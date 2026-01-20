@@ -1,6 +1,24 @@
 // En Netlify (prod y netlify dev) la API vive en /api gracias a netlify.toml
 const API_URL = '/api';
 
+async function readResponseBody(response) {
+    const contentType = (response.headers.get('content-type') || '').toLowerCase();
+    const text = await response.text();
+    if (contentType.includes('application/json')) {
+        try {
+            return { json: JSON.parse(text), text };
+        } catch {
+            return { json: null, text };
+        }
+    }
+    // A veces Netlify devuelve HTML (502/404) y response.json() truena.
+    try {
+        return { json: JSON.parse(text), text };
+    } catch {
+        return { json: null, text };
+    }
+}
+
 document.getElementById('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     
@@ -27,8 +45,9 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
             },
             body: JSON.stringify({ usuario, password })
         });
-        
-        const data = await response.json();
+
+        const { json, text } = await readResponseBody(response);
+        const data = json || {};
         
         if (response.ok) {
             // Guardar token + usuario
@@ -49,7 +68,10 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         } else {
             // Mostrar error
             errorMessage.classList.remove('hidden');
-            errorMessage.textContent = data.error || 'Error al iniciar sesión';
+            const backendMsg = data.error
+                ? data.error
+                : (text ? text.slice(0, 200) : 'Error al iniciar sesión');
+            errorMessage.textContent = `(${response.status}) ${backendMsg}`;
             
             // Rehabilitar botón
             submitBtn.disabled = false;
@@ -59,7 +81,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
     } catch (error) {
         console.error('Error:', error);
         errorMessage.classList.remove('hidden');
-        errorMessage.textContent = 'Error de conexión. Por favor, intente nuevamente.';
+        errorMessage.textContent = `Error de conexión. ${error && error.message ? error.message : ''}`.trim();
         
         // Rehabilitar botón
         submitBtn.disabled = false;
