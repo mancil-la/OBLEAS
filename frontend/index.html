@@ -113,29 +113,25 @@
             <section id="ventas" class="content-section">
                 <div class="venta-container">
                     <div class="venta-form">
-                        <h3>Información de Venta</h3>
+                        <h3>Pedido</h3>
                         <div class="form-group">
                             <label for="trabajador-select">Trabajador:</label>
                             <select id="trabajador-select" class="form-control">
                                 <option value="">Seleccionar trabajador...</option>
                             </select>
                         </div>
-                        
-                        <div class="form-group">
-                            <label for="producto-select">Producto:</label>
-                            <select id="producto-select" class="form-control">
-                                <option value="">Seleccionar producto...</option>
-                            </select>
+
+                        <div class="venta-tools">
+                            <div class="venta-search">
+                                <i class="fas fa-search"></i>
+                                <input id="venta-buscar" class="form-control" type="text" placeholder="Buscar producto (ej. obleas, papitas...)" autocomplete="off">
+                            </div>
+                            <div id="venta-categorias" class="venta-categorias"></div>
                         </div>
 
-                        <div class="form-group">
-                            <label for="cantidad-input">Cantidad:</label>
-                            <input type="number" id="cantidad-input" class="form-control" min="1" value="1">
+                        <div id="venta-productos-grid" class="venta-productos-grid">
+                            <div class="text-center text-light">Cargando productos...</div>
                         </div>
-
-                        <button class="btn btn-primary" onclick="agregarProductoVenta()">
-                            <i class="fas fa-plus"></i> Agregar Producto
-                        </button>
                     </div>
 
                     <div class="venta-resumen">

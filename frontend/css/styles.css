@@ -378,6 +378,153 @@ body {
     color: var(--text-dark);
 }
 
+.venta-tools {
+    display: grid;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.venta-search {
+    position: relative;
+}
+
+.venta-search i {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-light);
+}
+
+.venta-search .form-control {
+    padding-left: 2.25rem;
+}
+
+.venta-categorias {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.venta-cat-btn {
+    border: 1px solid var(--border-color);
+    background: white;
+    color: var(--text-dark);
+    padding: 0.4rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.venta-cat-btn:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.venta-cat-btn.active {
+    background: rgba(37, 99, 235, 0.1);
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.venta-productos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 0.75rem;
+    max-height: 520px;
+    overflow-y: auto;
+    padding-right: 0.25rem;
+}
+
+.venta-producto-card {
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 0.9rem;
+    background: var(--light-bg);
+    display: grid;
+    gap: 0.4rem;
+}
+
+.venta-producto-nombre {
+    font-weight: 600;
+    line-height: 1.15;
+}
+
+.venta-producto-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--text-light);
+}
+
+.venta-stock {
+    font-size: 0.85rem;
+    color: var(--text-light);
+}
+
+.venta-producto-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.venta-add-btn {
+    flex: 1;
+    padding: 0.55rem 0.75rem;
+    border-radius: 8px;
+    border: none;
+    background: var(--primary-color);
+    color: white;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.venta-add-btn:disabled {
+    background: #cbd5e1;
+    cursor: not-allowed;
+}
+
+.venta-add-btn:hover:not(:disabled) {
+    filter: brightness(0.95);
+}
+
+.venta-qty {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.venta-qty button {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: white;
+    cursor: pointer;
+}
+
+.venta-qty input {
+    width: 56px;
+    padding: 0.35rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    text-align: center;
+}
+
+.producto-venta-item {
+    gap: 0.75rem;
+}
+
+.venta-subtotal {
+    min-width: 90px;
+    text-align: right;
+    font-weight: 700;
+}
+
 #productos-venta-lista {
     max-height: 300px;
     overflow-y: auto;
@@ -561,7 +708,13 @@ body {
 /* ==================== TICKET ==================== */
 
 .ticket-modal .modal-content {
-    max-width: 400px;
+    max-width: 420px;
+}
+
+.ticket-paper {
+    width: 58mm;
+    max-width: 58mm;
+    margin: 0 auto;
 }
 
 #ticket-contenido {
@@ -634,18 +787,100 @@ body {
 /* ==================== RESPONSIVE ==================== */
 
 @media (max-width: 768px) {
+    .container {
+        flex-direction: column;
+    }
+
     .sidebar {
         width: 100%;
         height: auto;
         position: relative;
+        padding: 1rem 0;
+    }
+
+    .logo {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        padding: 0 1rem 1rem 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .logo i {
+        font-size: 2.25rem;
+        margin-bottom: 0;
+    }
+
+    .menu {
+        flex-direction: row;
+        overflow-x: auto;
+        overflow-y: hidden;
+        white-space: nowrap;
+        -webkit-overflow-scrolling: touch;
+        gap: 0.25rem;
+        padding: 0 0.5rem 0.25rem 0.5rem;
+    }
+
+    .menu-item {
+        flex: 0 0 auto;
+        border-left: none;
+        border-bottom: 3px solid transparent;
+        padding: 0.75rem 0.9rem;
+    }
+
+    .menu-item.active {
+        border-left: none;
+        border-bottom-color: var(--primary-color);
+    }
+
+    .menu-item i {
+        margin-right: 0.5rem;
     }
 
     .main-content {
         margin-left: 0;
+        padding: 1rem;
+    }
+
+    .header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+
+    .user-info {
+        width: 100%;
+        justify-content: space-between;
+        flex-wrap: wrap;
     }
 
     .venta-container {
         grid-template-columns: 1fr;
+    }
+
+    .venta-form,
+    .venta-resumen {
+        padding: 1rem;
+    }
+
+    .venta-productos-grid {
+        max-height: none;
+        grid-template-columns: repeat(2, minmax(140px, 1fr));
+    }
+
+    #productos-venta-lista {
+        max-height: 260px;
+    }
+
+    .producto-venta-item {
+        flex-wrap: wrap;
+        justify-content: flex-start;
+    }
+
+    .venta-subtotal {
+        min-width: auto;
+        margin-left: auto;
     }
 
     .stats-grid {
@@ -667,6 +902,29 @@ body {
 
     .filter-group .form-control {
         width: 100%;
+    }
+
+    .table-container {
+        overflow-x: auto;
+        overflow-y: hidden;
+    }
+
+    .data-table {
+        min-width: 720px;
+    }
+
+    .ticket-modal .modal-content {
+        max-width: 92vw;
+    }
+
+    #ticket-contenido {
+        padding: 0.9rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .venta-productos-grid {
+        grid-template-columns: 1fr;
     }
 }
 

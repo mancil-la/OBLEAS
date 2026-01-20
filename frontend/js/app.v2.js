@@ -8,6 +8,10 @@ let productosVenta = [];
 let totalVenta = 0;
 let usuarioActual = null;
 
+// Estado UI de ventas (POS)
+let ventaBusqueda = '';
+let ventaCategoria = 'Todas';
+
 // -------------------- Helpers --------------------
 
 async function fetchJson(url, options = {}) {
@@ -56,6 +60,12 @@ function formatMoney(value) {
 
 function qs(id) {
   return document.getElementById(id);
+}
+
+function normalizeText(value) {
+  const s = String(value || '').toLowerCase();
+  // Quitar acentos sin usar unicode property escapes
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
 // -------------------- Auth --------------------
@@ -183,6 +193,7 @@ function mostrarSeccion(sectionId) {
     case 'ventas':
       cargarSelectTrabajadores();
       cargarSelectProductos();
+      renderVentaPOS();
       actualizarListaVenta();
       break;
     case 'productos':
@@ -295,6 +306,8 @@ async function cargarProductos() {
     const data = await fetchJson(`${API_URL}/productos`, { method: 'GET' });
     if (!data) return [];
     productos = data;
+    // Si estamos en la pantalla de ventas, refrescar catálogo (stock puede cambiar)
+    renderVentaPOS(true);
     return productos;
   } catch (e) {
     console.error('Productos:', e);
@@ -596,6 +609,176 @@ window.eliminarTrabajador = eliminarTrabajador;
 
 // -------------------- Ventas --------------------
 
+let ventaPOSWired = false;
+
+function setupVentaPOSHandlers() {
+  if (ventaPOSWired) return;
+  ventaPOSWired = true;
+
+  const buscar = qs('venta-buscar');
+  if (buscar) {
+    buscar.addEventListener('input', () => {
+      ventaBusqueda = buscar.value || '';
+      renderVentaCatalogo();
+    });
+  }
+}
+
+function getCategoriasProductos() {
+  const set = new Set();
+  (productos || []).forEach((p) => {
+    const c = (p.categoria || '').trim();
+    if (c) set.add(c);
+  });
+  return Array.from(set).sort((a, b) => a.localeCompare(b, 'es'));
+}
+
+function renderVentaCategorias() {
+  const cont = qs('venta-categorias');
+  if (!cont) return;
+
+  const cats = ['Todas', ...getCategoriasProductos()];
+  cont.innerHTML = cats
+    .map((c) => {
+      const active = c === ventaCategoria ? 'active' : '';
+      return `<button type="button" class="venta-cat-btn ${active}" data-cat="${encodeURIComponent(c)}">${c}</button>`;
+    })
+    .join('');
+
+  cont.querySelectorAll('button[data-cat]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const cat = decodeURIComponent(btn.getAttribute('data-cat') || 'Todas');
+      ventaCategoria = cat;
+      renderVentaCategorias();
+      renderVentaCatalogo();
+    });
+  });
+}
+
+function renderVentaCatalogo() {
+  const grid = qs('venta-productos-grid');
+  if (!grid) return;
+
+  const q = normalizeText(ventaBusqueda);
+
+  const filtered = (productos || [])
+    .filter((p) => {
+      if (ventaCategoria !== 'Todas' && String(p.categoria || '') !== ventaCategoria) return false;
+      if (!q) return true;
+      const hay = `${p.nombre || ''} ${p.categoria || ''}`;
+      return normalizeText(hay).includes(q);
+    })
+    .sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es'));
+
+  if (!filtered.length) {
+    grid.innerHTML = '<div class="text-center text-light">Sin resultados</div>';
+    return;
+  }
+
+  grid.innerHTML = filtered
+    .map((p) => {
+      const stock = Number(p.stock || 0);
+      const disabled = stock <= 0 ? 'disabled' : '';
+      const stockTxt = stock > 0 ? `Stock: ${stock}` : 'Sin stock';
+      return `
+        <div class="venta-producto-card">
+          <div class="venta-producto-nombre">${p.nombre}</div>
+          <div class="venta-producto-meta">
+            <div>${formatMoney(p.precio)}</div>
+            <div class="venta-stock">${stockTxt}</div>
+          </div>
+          <div class="venta-producto-actions">
+            <button class="venta-add-btn" ${disabled} onclick="agregarProductoVentaRapido(${p.id})">+ Agregar</button>
+          </div>
+        </div>
+      `;
+    })
+    .join('');
+}
+
+function renderVentaPOS(_force = false) {
+  // Solo si existe el nuevo UI
+  if (!qs('venta-productos-grid')) return;
+  setupVentaPOSHandlers();
+  renderVentaCategorias();
+  renderVentaCatalogo();
+}
+
+function agregarProductoVentaPorId(productoId, cantidad) {
+  const qty = Number(cantidad || 1);
+  if (!productoId || !Number.isFinite(qty) || qty <= 0) return;
+
+  const producto = productos.find((p) => p.id === Number(productoId));
+  if (!producto) {
+    alert('Producto no encontrado');
+    return;
+  }
+
+  const stock = Number(producto.stock || 0);
+  const existente = productosVenta.find((p) => p.id === Number(productoId));
+  const enCarrito = existente ? existente.cantidad : 0;
+  const nuevaCantidad = enCarrito + qty;
+  if (nuevaCantidad > stock) {
+    alert(`Stock insuficiente. Disponible: ${stock}`);
+    return;
+  }
+
+  if (existente) {
+    existente.cantidad = nuevaCantidad;
+  } else {
+    productosVenta.push({
+      id: producto.id,
+      nombre: producto.nombre,
+      precio: Number(producto.precio),
+      cantidad: qty
+    });
+  }
+
+  actualizarListaVenta();
+}
+
+function agregarProductoVentaRapido(productoId) {
+  agregarProductoVentaPorId(productoId, 1);
+}
+
+function cambiarCantidadVenta(index, delta) {
+  const item = productosVenta[index];
+  if (!item) return;
+  const producto = productos.find((p) => p.id === item.id);
+  const stock = producto ? Number(producto.stock || 0) : Infinity;
+
+  const nueva = Number(item.cantidad || 0) + Number(delta || 0);
+  if (nueva <= 0) {
+    eliminarProductoVenta(index);
+    return;
+  }
+  if (nueva > stock) {
+    alert(`Stock insuficiente. Disponible: ${stock}`);
+    return;
+  }
+  item.cantidad = nueva;
+  actualizarListaVenta();
+}
+
+function setCantidadVenta(index, value) {
+  const item = productosVenta[index];
+  if (!item) return;
+  const nueva = Number(value);
+  if (!Number.isFinite(nueva) || nueva <= 0) {
+    actualizarListaVenta();
+    return;
+  }
+  const producto = productos.find((p) => p.id === item.id);
+  const stock = producto ? Number(producto.stock || 0) : Infinity;
+  if (nueva > stock) {
+    alert(`Stock insuficiente. Disponible: ${stock}`);
+    actualizarListaVenta();
+    return;
+  }
+  item.cantidad = Math.trunc(nueva);
+  actualizarListaVenta();
+}
+
 function cargarSelectTrabajadores() {
   const select = qs('trabajador-select');
   if (!select) return;
@@ -620,8 +803,13 @@ function cargarSelectProductos() {
 }
 
 function agregarProductoVenta() {
-  const productoId = Number(qs('producto-select').value);
-  const cantidad = Number(qs('cantidad-input').value);
+  // Soporte legado (si aún existe el select)
+  const ps = qs('producto-select');
+  const ci = qs('cantidad-input');
+  if (!ps || !ci) return;
+
+  const productoId = Number(ps.value);
+  const cantidad = Number(ci.value);
 
   if (!productoId || !cantidad || cantidad <= 0) {
     alert('Por favor seleccione un producto y cantidad válida');
@@ -657,8 +845,8 @@ function agregarProductoVenta() {
   }
 
   actualizarListaVenta();
-  qs('producto-select').value = '';
-  qs('cantidad-input').value = '1';
+  ps.value = '';
+  ci.value = '1';
 }
 
 function eliminarProductoVenta(index) {
@@ -680,9 +868,15 @@ function actualizarListaVenta() {
         <div class="producto-venta-item">
           <div class="producto-venta-info">
             <h4>${p.nombre}</h4>
-            <p>${p.cantidad} x ${formatMoney(p.precio)} = ${formatMoney(subtotal)}</p>
+            <p>${formatMoney(p.precio)} c/u</p>
           </div>
-          <button class="btn btn-sm btn-danger" onclick="eliminarProductoVenta(${index})"><i class="fas fa-trash"></i></button>
+          <div class="venta-qty">
+            <button type="button" onclick="cambiarCantidadVenta(${index}, -1)">-</button>
+            <input type="number" min="1" value="${p.cantidad}" onchange="setCantidadVenta(${index}, this.value)">
+            <button type="button" onclick="cambiarCantidadVenta(${index}, 1)">+</button>
+          </div>
+          <div class="venta-subtotal">${formatMoney(subtotal)}</div>
+          <button class="btn btn-sm btn-danger" onclick="eliminarProductoVenta(${index})" title="Quitar"><i class="fas fa-trash"></i></button>
         </div>
       `;
     }).join('');
@@ -738,10 +932,19 @@ function cancelarVenta() {
   if (ps) ps.value = '';
   const ci = qs('cantidad-input');
   if (ci) ci.value = '1';
+
+  const buscar = qs('venta-buscar');
+  if (buscar) buscar.value = '';
+  ventaBusqueda = '';
+  // No tocamos la categoría, se queda como estaba
+
   actualizarListaVenta();
 }
 
 window.agregarProductoVenta = agregarProductoVenta;
+window.agregarProductoVentaRapido = agregarProductoVentaRapido;
+window.cambiarCantidadVenta = cambiarCantidadVenta;
+window.setCantidadVenta = setCantidadVenta;
 window.eliminarProductoVenta = eliminarProductoVenta;
 window.completarVenta = completarVenta;
 window.cancelarVenta = cancelarVenta;
@@ -825,16 +1028,17 @@ async function mostrarTicket(ventaId) {
     const fecha = new Date(venta.fecha).toLocaleString('es-ES');
 
     let ticketHTML = `
-      <div class="ticket-header">
-        <h2>Obleas & Botanas</h2>
-        <p>Sistema de Ventas</p>
-      </div>
-      <div class="ticket-info">
-        <p><strong>Ticket #:</strong> ${venta.id}</p>
-        <p><strong>Trabajador:</strong> ${venta.trabajador_nombre}</p>
-        <p><strong>Fecha:</strong> ${fecha}</p>
-      </div>
-      <div class="ticket-productos">
+      <div class="ticket-paper">
+        <div class="ticket-header">
+          <h2>Obleas & Botanas</h2>
+          <p>Sistema de Ventas</p>
+        </div>
+        <div class="ticket-info">
+          <p><strong>Ticket #:</strong> ${venta.id}</p>
+          <p><strong>Trabajador:</strong> ${venta.trabajador_nombre}</p>
+          <p><strong>Fecha:</strong> ${fecha}</p>
+        </div>
+        <div class="ticket-productos">
     `;
 
     (venta.detalles || []).forEach((d) => {
@@ -850,9 +1054,10 @@ async function mostrarTicket(ventaId) {
     });
 
     ticketHTML += `
+        </div>
+        <div class="ticket-total"><p>TOTAL: ${formatMoney(venta.total)}</p></div>
+        <div class="ticket-footer"><p>¡Gracias por su compra!</p></div>
       </div>
-      <div class="ticket-total"><p>TOTAL: ${formatMoney(venta.total)}</p></div>
-      <div class="ticket-footer"><p>¡Gracias por su compra!</p></div>
     `;
 
     const cont = qs('ticket-contenido');
@@ -872,19 +1077,28 @@ function cerrarModalTicket() {
 
 function imprimirTicket() {
   const contenido = qs('ticket-contenido') ? qs('ticket-contenido').innerHTML : '';
-  const ventana = window.open('', '', 'width=400,height=600');
+  const ventana = window.open('', '', 'width=420,height=700');
   ventana.document.write(`
     <html>
       <head>
         <title>Ticket de Venta</title>
         <style>
-          body { font-family: 'Courier New', monospace; padding: 20px; }
-          .ticket-header { text-align: center; margin-bottom: 20px; }
-          .ticket-info { margin-bottom: 20px; }
-          .ticket-productos { border-top: 2px dashed #000; border-bottom: 2px dashed #000; padding: 10px 0; }
-          .ticket-producto { display: flex; justify-content: space-between; margin-bottom: 10px; }
-          .ticket-total { font-weight: bold; font-size: 1.2em; text-align: right; margin-top: 10px; }
-          .ticket-footer { text-align: center; margin-top: 20px; border-top: 2px dashed #000; padding-top: 10px; }
+          @page { size: 58mm auto; margin: 3mm; }
+          html, body { width: 58mm; margin: 0; padding: 0; }
+          body { font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.25; }
+          .ticket-paper { width: 58mm; }
+          .ticket-header { text-align: center; margin-bottom: 8px; }
+          .ticket-header h2 { font-size: 14px; margin: 0 0 2px 0; }
+          .ticket-header p { margin: 0; }
+          .ticket-info { margin: 6px 0 8px 0; }
+          .ticket-info p { margin: 2px 0; }
+          .ticket-productos { border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 6px 0; }
+          .ticket-producto { display: flex; justify-content: space-between; gap: 6px; margin-bottom: 6px; }
+          .ticket-producto > div:first-child { max-width: 40mm; }
+          .ticket-total { font-weight: bold; font-size: 13px; text-align: right; margin-top: 8px; }
+          .ticket-total p { margin: 0; }
+          .ticket-footer { text-align: center; margin-top: 10px; border-top: 1px dashed #000; padding-top: 6px; }
+          .ticket-footer p { margin: 0; }
         </style>
       </head>
       <body>${contenido}</body>
