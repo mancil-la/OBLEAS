@@ -1123,46 +1123,28 @@ function cerrarModalTicket() {
 
 function imprimirTicket() {
   const contenido = qs('ticket-contenido') ? qs('ticket-contenido').innerHTML : '';
-  const ventana = window.open('', '', 'width=420,height=700');
-  ventana.document.write(`
-    <html>
-      <head>
-        <title>Ticket de Venta</title>
-        <style>
-          @page { size: 58mm auto; margin: 3mm; }
-          html, body { width: 58mm; margin: 0; padding: 0; }
-          body { font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.25; }
-          .ticket-paper { width: 58mm; }
-          .ticket-header { text-align: center; margin-bottom: 8px; }
-          .ticket-header h2 { font-size: 14px; margin: 0 0 2px 0; }
-          .ticket-header p { margin: 0; }
-          .ticket-info { margin: 6px 0 8px 0; }
-          .ticket-info p { margin: 2px 0; }
-          .ticket-productos { border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 6px 0; }
-          .ticket-producto { display: flex; justify-content: space-between; gap: 6px; margin-bottom: 6px; }
-          .ticket-producto > div:first-child { max-width: 40mm; }
-          .ticket-total { font-weight: bold; font-size: 13px; text-align: right; margin-top: 8px; }
-          .ticket-total p { margin: 0; }
-          .ticket-footer { text-align: center; margin-top: 10px; border-top: 1px dashed #000; padding-top: 6px; }
-          .ticket-footer p { margin: 0; }
-        </style>
-      </head>
-      <body>${contenido}</body>
-    </html>
-  `);
-  ventana.document.close();
-
-  // Intentar imprimir automáticamente al cargar.
-  ventana.onload = () => {
-    try {
-      ventana.focus();
-      ventana.print();
-    } catch {}
-  };
-  // Cerrar después de imprimir (si el navegador lo permite)
-  ventana.onafterprint = () => {
-    try { ventana.close(); } catch {}
-  };
+  const body = document.body;
+  const original = body.innerHTML;
+  // Solo el ticket para imprimir
+  body.innerHTML = `<div id='ticket-print-area' style='width:58mm; margin:0 auto;'>${contenido}</div>`;
+  // Forzar estilos de impresión
+  const style = document.createElement('style');
+  style.innerHTML = `
+    @media print {
+      body, html { background: #fff !important; color: #111 !important; width: 58mm !important; margin: 0 !important; padding: 0 !important; }
+      #ticket-print-area { width: 58mm !important; margin: 0 auto !important; }
+    }
+    @page { size: 58mm auto; margin: 3mm; }
+  `;
+  document.head.appendChild(style);
+  window.print();
+  // Restaurar después de imprimir
+  setTimeout(() => {
+    body.innerHTML = original;
+    document.head.removeChild(style);
+    // Recargar scripts para restaurar eventos
+    location.reload();
+  }, 500);
 }
 
 window.mostrarTicket = mostrarTicket;
