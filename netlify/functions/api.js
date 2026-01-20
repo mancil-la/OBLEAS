@@ -7,6 +7,22 @@ const { createClient } = require('@supabase/supabase-js');
 const app = express();
 app.use(express.json());
 
+// Netlify puede invocar esta Function de 2 formas:
+// 1) URL pública reescrita: /api/*  (por netlify.toml)
+// 2) URL interna: /.netlify/functions/api/*
+// Normalizamos para que las rutas definidas como '/auth/login' funcionen en ambos casos.
+app.use((req, _res, next) => {
+  if (typeof req.url === 'string') {
+    if (req.url === '/api') req.url = '/';
+    if (req.url.startsWith('/api/')) req.url = req.url.slice(4) || '/';
+    if (req.url === '/.netlify/functions/api') req.url = '/';
+    if (req.url.startsWith('/.netlify/functions/api/')) {
+      req.url = req.url.slice('/.netlify/functions/api'.length) || '/';
+    }
+  }
+  next();
+});
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const JWT_SECRET = process.env.JWT_SECRET;
