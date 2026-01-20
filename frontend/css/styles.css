@@ -772,29 +772,41 @@ body {
     max-width: 420px;
 }
 
+
 .ticket-paper {
     width: 58mm;
     max-width: 58mm;
     margin: 0 auto;
+    background: #fff;
+    color: #111;
+    font-family: 'Courier New', monospace;
+    font-size: 16px;
+    line-height: 1.35;
 }
 
 #ticket-contenido {
     font-family: 'Courier New', monospace;
-    background-color: white;
+    background-color: #fff;
+    color: #111;
     padding: 1.5rem;
-    border: 2px dashed var(--border-color);
+    border: 2px dashed #111;
+    font-size: 16px;
+    line-height: 1.35;
 }
 
 .ticket-header {
     text-align: center;
     margin-bottom: 1rem;
     padding-bottom: 1rem;
-    border-bottom: 2px dashed var(--border-color);
+    border-bottom: 2px dashed #111;
+    font-size: 18px;
+    font-weight: bold;
 }
 
 .ticket-info {
     margin-bottom: 1rem;
-    font-size: 0.9rem;
+    font-size: 15px;
+    color: #222;
 }
 
 .ticket-productos {
@@ -812,17 +824,19 @@ body {
 
 .ticket-total {
     font-weight: bold;
-    font-size: 1.2rem;
+    font-size: 20px;
     text-align: right;
     margin-top: 1rem;
+    color: #000;
 }
 
 .ticket-footer {
     text-align: center;
     margin-top: 1rem;
     padding-top: 1rem;
-    border-top: 2px dashed var(--border-color);
-    font-size: 0.8rem;
+    border-top: 2px dashed #111;
+    font-size: 15px;
+    color: #222;
 }
 
 /* ==================== BADGES ==================== */

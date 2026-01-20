@@ -1137,23 +1137,24 @@ function imprimirTicket() {
   ventana.document.write(`
     <html>
       <head>
+        <meta name='viewport' content='width=58mm, initial-scale=1.0, maximum-scale=1.0, user-scalable=no'>
         <title>Ticket de Venta</title>
         <style>
           @page { size: 58mm auto; margin: 3mm; }
-          html, body { width: 58mm; margin: 0; padding: 0; }
-          body { font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.25; }
-          .ticket-paper { width: 58mm; }
-          .ticket-header { text-align: center; margin-bottom: 8px; }
-          .ticket-header h2 { font-size: 14px; margin: 0 0 2px 0; }
+          html, body { width: 58mm; margin: 0; padding: 0; background: #fff; color: #111; }
+          body { font-family: 'Courier New', monospace; font-size: 16px; line-height: 1.35; }
+          .ticket-paper { width: 58mm; background: #fff; color: #111; font-size: 16px; }
+          .ticket-header { text-align: center; margin-bottom: 8px; font-size: 18px; font-weight: bold; }
+          .ticket-header h2 { font-size: 18px; margin: 0 0 2px 0; }
           .ticket-header p { margin: 0; }
-          .ticket-info { margin: 6px 0 8px 0; }
+          .ticket-info { margin: 6px 0 8px 0; font-size: 15px; color: #222; }
           .ticket-info p { margin: 2px 0; }
-          .ticket-productos { border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 6px 0; }
+          .ticket-productos { border-top: 1px dashed #111; border-bottom: 1px dashed #111; padding: 6px 0; }
           .ticket-producto { display: flex; justify-content: space-between; gap: 6px; margin-bottom: 6px; }
           .ticket-producto > div:first-child { max-width: 40mm; }
-          .ticket-total { font-weight: bold; font-size: 13px; text-align: right; margin-top: 8px; }
+          .ticket-total { font-weight: bold; font-size: 20px; text-align: right; margin-top: 8px; color: #000; }
           .ticket-total p { margin: 0; }
-          .ticket-footer { text-align: center; margin-top: 10px; border-top: 1px dashed #000; padding-top: 6px; }
+          .ticket-footer { text-align: center; margin-top: 10px; border-top: 1px dashed #111; padding-top: 6px; font-size: 15px; color: #222; }
           .ticket-footer p { margin: 0; }
         </style>
       </head>

@@ -27,18 +27,38 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const JWT_SECRET = process.env.JWT_SECRET;
 
-const missingEnv = [];
-if (!SUPABASE_URL) missingEnv.push('SUPABASE_URL');
-if (!SUPABASE_SERVICE_ROLE_KEY) missingEnv.push('SUPABASE_SERVICE_ROLE_KEY');
-if (!JWT_SECRET) missingEnv.push('JWT_SECRET');
-
-if (missingEnv.length) {
-  console.warn(`⚠️ Faltan variables de entorno: ${missingEnv.join(', ')}`);
+function getMissingEnv() {
+  const missing = [];
+  if (!process.env.SUPABASE_URL) missing.push('SUPABASE_URL');
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) missing.push('SUPABASE_SERVICE_ROLE_KEY');
+  if (!process.env.JWT_SECRET) missing.push('JWT_SECRET');
+  return missing;
 }
 
-const supabase = createClient(SUPABASE_URL || '', SUPABASE_SERVICE_ROLE_KEY || '', {
-  auth: { persistSession: false }
-});
+const missingEnvAtBoot = getMissingEnv();
+if (missingEnvAtBoot.length) {
+  console.warn(`⚠️ Faltan variables de entorno: ${missingEnvAtBoot.join(', ')}`);
+}
+
+let supabaseClient = null;
+let supabaseClientUrl = null;
+let supabaseClientKey = null;
+
+function getSupabaseClient() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url) throw new Error('SUPABASE_URL no está configurada');
+  if (!key) throw new Error('SUPABASE_SERVICE_ROLE_KEY no está configurada');
+
+  if (supabaseClient && supabaseClientUrl === url && supabaseClientKey === key) {
+    return supabaseClient;
+  }
+
+  supabaseClientUrl = url;
+  supabaseClientKey = key;
+  supabaseClient = createClient(url, key, { auth: { persistSession: false } });
+  return supabaseClient;
+}
 
 function httpError(res, status, message) {
   return res.status(status).json({ error: message });
@@ -56,8 +76,9 @@ function signToken(user) {
   );
 }
 
-// Middleware: valida config en cada request
+// Middleware: valida config en cada request (las env vars pueden cambiar entre deploys)
 app.use((req, res, next) => {
+  const missingEnv = getMissingEnv();
   if (missingEnv.length) {
     return httpError(res, 500, `Config incompleta en Netlify. Faltan: ${missingEnv.join(', ')}`);
   }
@@ -80,6 +101,8 @@ async function requireAuth(req, res, next) {
 
     const payload = jwt.verify(token, JWT_SECRET);
     const userId = payload.sub;
+
+    const supabase = getSupabaseClient();
 
     const { data: user, error } = await supabase
       .from('trabajadores')
@@ -109,6 +132,8 @@ function requireAdmin(req, res, next) {
 app.post('/auth/login', asyncHandler(async (req, res) => {
   const { usuario, password } = req.body || {};
   if (!usuario || !password) return httpError(res, 400, 'Usuario y contraseña requeridos');
+
+  const supabase = getSupabaseClient();
 
   const { data: user, error } = await supabase
     .from('trabajadores')
@@ -141,12 +166,14 @@ app.post('/auth/logout', (req, res) => {
 // ==================== PRODUCTOS ====================
 
 app.get('/productos', requireAuth, asyncHandler(async (req, res) => {
+  const supabase = getSupabaseClient();
   const { data, error } = await supabase.from('productos').select('*').order('nombre');
   if (error) return httpError(res, 500, error.message);
   res.json(data || []);
 }));
 
 app.get('/productos/:id', requireAuth, asyncHandler(async (req, res) => {
+  const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from('productos')
     .select('*')
@@ -159,6 +186,7 @@ app.get('/productos/:id', requireAuth, asyncHandler(async (req, res) => {
 }));
 
 app.post('/productos', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  const supabase = getSupabaseClient();
   const { nombre, categoria, precio, stock } = req.body || {};
   if (!nombre || precio === undefined || precio === null) return httpError(res, 400, 'Nombre y precio son requeridos');
 
@@ -173,6 +201,7 @@ app.post('/productos', requireAuth, requireAdmin, asyncHandler(async (req, res) 
 }));
 
 app.put('/productos/:id', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  const supabase = getSupabaseClient();
   const { nombre, categoria, precio, stock } = req.body || {};
 
   const payload = {};
@@ -188,6 +217,7 @@ app.put('/productos/:id', requireAuth, requireAdmin, asyncHandler(async (req, re
 }));
 
 app.delete('/productos/:id', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  const supabase = getSupabaseClient();
   const { error } = await supabase.from('productos').delete().eq('id', req.params.id);
   if (error) return httpError(res, 500, error.message);
 
@@ -195,6 +225,7 @@ app.delete('/productos/:id', requireAuth, requireAdmin, asyncHandler(async (req,
 }));
 
 app.post('/productos/:id/ajustar-stock', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  const supabase = getSupabaseClient();
   const deltaNum = Number((req.body || {}).delta);
   if (!Number.isFinite(deltaNum) || deltaNum === 0) return httpError(res, 400, 'Delta inválido');
 
@@ -210,6 +241,7 @@ app.post('/productos/:id/ajustar-stock', requireAuth, requireAdmin, asyncHandler
 // ==================== TRABAJADORES ====================
 
 app.get('/trabajadores', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from('trabajadores')
     .select('id, nombre, usuario, rol, telefono, activo, fecha_creacion')
@@ -220,6 +252,7 @@ app.get('/trabajadores', requireAuth, requireAdmin, asyncHandler(async (req, res
 }));
 
 app.get('/trabajadores/:id', requireAuth, asyncHandler(async (req, res) => {
+  const supabase = getSupabaseClient();
   const id = Number(req.params.id);
   if (req.user.rol !== 'admin' && req.user.id !== id) {
     return httpError(res, 403, 'Acceso denegado');
@@ -237,6 +270,7 @@ app.get('/trabajadores/:id', requireAuth, asyncHandler(async (req, res) => {
 }));
 
 app.post('/trabajadores', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  const supabase = getSupabaseClient();
   const { nombre, usuario, password, rol, telefono, activo } = req.body || {};
   if (!nombre || !usuario || !password) return httpError(res, 400, 'Nombre, usuario y contraseña son requeridos');
 
@@ -268,6 +302,7 @@ app.post('/trabajadores', requireAuth, requireAdmin, asyncHandler(async (req, re
 }));
 
 app.put('/trabajadores/:id', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  const supabase = getSupabaseClient();
   const { nombre, usuario, password, rol, telefono, activo } = req.body || {};
 
   const payload = {};
@@ -290,6 +325,7 @@ app.put('/trabajadores/:id', requireAuth, requireAdmin, asyncHandler(async (req,
 }));
 
 app.delete('/trabajadores/:id', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  const supabase = getSupabaseClient();
   const { error } = await supabase
     .from('trabajadores')
     .update({ activo: false })
@@ -302,6 +338,7 @@ app.delete('/trabajadores/:id', requireAuth, requireAdmin, asyncHandler(async (r
 // ==================== VENTAS ====================
 
 app.get('/ventas', requireAuth, asyncHandler(async (req, res) => {
+  const supabase = getSupabaseClient();
   const { trabajador_id, fecha_inicio, fecha_fin } = req.query || {};
 
   const filtroTrabajador = req.user.rol === 'admin' ? trabajador_id : req.user.id;
@@ -330,6 +367,7 @@ app.get('/ventas', requireAuth, asyncHandler(async (req, res) => {
 }));
 
 app.get('/ventas/:id', requireAuth, asyncHandler(async (req, res) => {
+  const supabase = getSupabaseClient();
   const ventaId = Number(req.params.id);
 
   const { data: venta, error: ventaErr } = await supabase
@@ -374,6 +412,7 @@ app.get('/ventas/:id', requireAuth, asyncHandler(async (req, res) => {
 }));
 
 app.post('/ventas', requireAuth, asyncHandler(async (req, res) => {
+  const supabase = getSupabaseClient();
   const { trabajador_id, productos } = req.body || {};
   const trabajadorFinal = req.user.rol === 'admin' ? trabajador_id : req.user.id;
 
@@ -394,6 +433,7 @@ app.post('/ventas', requireAuth, asyncHandler(async (req, res) => {
 // ==================== REPORTES ====================
 
 app.get('/reportes/ventas-por-trabajador', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  const supabase = getSupabaseClient();
   const { fecha_inicio, fecha_fin } = req.query || {};
 
   const { data, error } = await supabase.rpc('sales_by_worker', {
@@ -406,6 +446,7 @@ app.get('/reportes/ventas-por-trabajador', requireAuth, requireAdmin, asyncHandl
 }));
 
 app.get('/reportes/productos-mas-vendidos', requireAuth, asyncHandler(async (req, res) => {
+  const supabase = getSupabaseClient();
   const { fecha_inicio, fecha_fin } = req.query || {};
 
   const { data, error } = await supabase.rpc('top_products', {
@@ -418,6 +459,7 @@ app.get('/reportes/productos-mas-vendidos', requireAuth, asyncHandler(async (req
 }));
 
 app.get('/reportes/resumen', requireAuth, asyncHandler(async (req, res) => {
+  const supabase = getSupabaseClient();
   const userId = req.user.rol === 'admin' ? null : req.user.id;
 
   const { data, error } = await supabase.rpc('dashboard_summary', {
