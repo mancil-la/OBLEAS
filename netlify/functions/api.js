@@ -11,11 +11,13 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const JWT_SECRET = process.env.JWT_SECRET;
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  console.warn('⚠️ Falta SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en variables de entorno');
-}
-if (!JWT_SECRET) {
-  console.warn('⚠️ Falta JWT_SECRET en variables de entorno');
+const missingEnv = [];
+if (!SUPABASE_URL) missingEnv.push('SUPABASE_URL');
+if (!SUPABASE_SERVICE_ROLE_KEY) missingEnv.push('SUPABASE_SERVICE_ROLE_KEY');
+if (!JWT_SECRET) missingEnv.push('JWT_SECRET');
+
+if (missingEnv.length) {
+  console.warn(`⚠️ Faltan variables de entorno: ${missingEnv.join(', ')}`);
 }
 
 const supabase = createClient(SUPABASE_URL || '', SUPABASE_SERVICE_ROLE_KEY || '', {
@@ -36,6 +38,21 @@ function signToken(user) {
     JWT_SECRET,
     { expiresIn: '7d' }
   );
+}
+
+// Middleware: valida config en cada request
+app.use((req, res, next) => {
+  if (missingEnv.length) {
+    return httpError(res, 500, `Config incompleta en Netlify. Faltan: ${missingEnv.join(', ')}`);
+  }
+  next();
+});
+
+function asyncHandler(fn) {
+  return (req, res, next) => Promise.resolve(fn(req, res, next)).catch((err) => {
+    console.error('API Error:', err);
+    httpError(res, 500, err && err.message ? err.message : 'Error interno');
+  });
 }
 
 async function requireAuth(req, res, next) {
@@ -73,7 +90,7 @@ function requireAdmin(req, res, next) {
 
 // ==================== AUTH ====================
 
-app.post('/auth/login', async (req, res) => {
+app.post('/auth/login', asyncHandler(async (req, res) => {
   const { usuario, password } = req.body || {};
   if (!usuario || !password) return httpError(res, 400, 'Usuario y contraseña requeridos');
 
@@ -94,7 +111,7 @@ app.post('/auth/login', async (req, res) => {
     token,
     user: { id: user.id, nombre: user.nombre, rol: user.rol }
   });
-});
+}));
 
 app.get('/auth/me', requireAuth, (req, res) => {
   res.json(req.user);
@@ -107,13 +124,13 @@ app.post('/auth/logout', (req, res) => {
 
 // ==================== PRODUCTOS ====================
 
-app.get('/productos', requireAuth, async (req, res) => {
+app.get('/productos', requireAuth, asyncHandler(async (req, res) => {
   const { data, error } = await supabase.from('productos').select('*').order('nombre');
   if (error) return httpError(res, 500, error.message);
   res.json(data || []);
-});
+}));
 
-app.get('/productos/:id', requireAuth, async (req, res) => {
+app.get('/productos/:id', requireAuth, asyncHandler(async (req, res) => {
   const { data, error } = await supabase
     .from('productos')
     .select('*')
@@ -123,9 +140,9 @@ app.get('/productos/:id', requireAuth, async (req, res) => {
   if (error) return httpError(res, 500, error.message);
   if (!data) return httpError(res, 404, 'Producto no encontrado');
   res.json(data);
-});
+}));
 
-app.post('/productos', requireAuth, requireAdmin, async (req, res) => {
+app.post('/productos', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
   const { nombre, categoria, precio, stock } = req.body || {};
   if (!nombre || precio === undefined || precio === null) return httpError(res, 400, 'Nombre y precio son requeridos');
 
@@ -137,9 +154,9 @@ app.post('/productos', requireAuth, requireAdmin, async (req, res) => {
 
   if (error) return httpError(res, 500, error.message);
   res.status(201).json({ id: data.id, message: 'Producto creado exitosamente' });
-});
+}));
 
-app.put('/productos/:id', requireAuth, requireAdmin, async (req, res) => {
+app.put('/productos/:id', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
   const { nombre, categoria, precio, stock } = req.body || {};
 
   const payload = {};
@@ -152,16 +169,16 @@ app.put('/productos/:id', requireAuth, requireAdmin, async (req, res) => {
   if (error) return httpError(res, 500, error.message);
 
   res.json({ message: 'Producto actualizado exitosamente' });
-});
+}));
 
-app.delete('/productos/:id', requireAuth, requireAdmin, async (req, res) => {
+app.delete('/productos/:id', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
   const { error } = await supabase.from('productos').delete().eq('id', req.params.id);
   if (error) return httpError(res, 500, error.message);
 
   res.json({ message: 'Producto eliminado exitosamente' });
-});
+}));
 
-app.post('/productos/:id/ajustar-stock', requireAuth, requireAdmin, async (req, res) => {
+app.post('/productos/:id/ajustar-stock', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
   const deltaNum = Number((req.body || {}).delta);
   if (!Number.isFinite(deltaNum) || deltaNum === 0) return httpError(res, 400, 'Delta inválido');
 
@@ -172,11 +189,11 @@ app.post('/productos/:id/ajustar-stock', requireAuth, requireAdmin, async (req, 
 
   if (error) return httpError(res, 400, error.message);
   res.json({ message: 'Stock actualizado', stock: data });
-});
+}));
 
 // ==================== TRABAJADORES ====================
 
-app.get('/trabajadores', requireAuth, requireAdmin, async (req, res) => {
+app.get('/trabajadores', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
   const { data, error } = await supabase
     .from('trabajadores')
     .select('id, nombre, usuario, rol, telefono, activo, fecha_creacion')
@@ -184,9 +201,9 @@ app.get('/trabajadores', requireAuth, requireAdmin, async (req, res) => {
 
   if (error) return httpError(res, 500, error.message);
   res.json(data || []);
-});
+}));
 
-app.get('/trabajadores/:id', requireAuth, async (req, res) => {
+app.get('/trabajadores/:id', requireAuth, asyncHandler(async (req, res) => {
   const id = Number(req.params.id);
   if (req.user.rol !== 'admin' && req.user.id !== id) {
     return httpError(res, 403, 'Acceso denegado');
@@ -201,9 +218,9 @@ app.get('/trabajadores/:id', requireAuth, async (req, res) => {
   if (error) return httpError(res, 500, error.message);
   if (!data) return httpError(res, 404, 'Trabajador no encontrado');
   res.json(data);
-});
+}));
 
-app.post('/trabajadores', requireAuth, requireAdmin, async (req, res) => {
+app.post('/trabajadores', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
   const { nombre, usuario, password, rol, telefono, activo } = req.body || {};
   if (!nombre || !usuario || !password) return httpError(res, 400, 'Nombre, usuario y contraseña son requeridos');
 
@@ -232,9 +249,9 @@ app.post('/trabajadores', requireAuth, requireAdmin, async (req, res) => {
   }
 
   res.status(201).json({ id: data.id, message: 'Trabajador creado exitosamente' });
-});
+}));
 
-app.put('/trabajadores/:id', requireAuth, requireAdmin, async (req, res) => {
+app.put('/trabajadores/:id', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
   const { nombre, usuario, password, rol, telefono, activo } = req.body || {};
 
   const payload = {};
@@ -254,9 +271,9 @@ app.put('/trabajadores/:id', requireAuth, requireAdmin, async (req, res) => {
   }
 
   res.json({ message: 'Trabajador actualizado exitosamente' });
-});
+}));
 
-app.delete('/trabajadores/:id', requireAuth, requireAdmin, async (req, res) => {
+app.delete('/trabajadores/:id', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
   const { error } = await supabase
     .from('trabajadores')
     .update({ activo: false })
@@ -264,11 +281,11 @@ app.delete('/trabajadores/:id', requireAuth, requireAdmin, async (req, res) => {
 
   if (error) return httpError(res, 500, error.message);
   res.json({ message: 'Trabajador desactivado exitosamente' });
-});
+}));
 
 // ==================== VENTAS ====================
 
-app.get('/ventas', requireAuth, async (req, res) => {
+app.get('/ventas', requireAuth, asyncHandler(async (req, res) => {
   const { trabajador_id, fecha_inicio, fecha_fin } = req.query || {};
 
   const filtroTrabajador = req.user.rol === 'admin' ? trabajador_id : req.user.id;
@@ -294,9 +311,9 @@ app.get('/ventas', requireAuth, async (req, res) => {
   }));
 
   res.json(mapped);
-});
+}));
 
-app.get('/ventas/:id', requireAuth, async (req, res) => {
+app.get('/ventas/:id', requireAuth, asyncHandler(async (req, res) => {
   const ventaId = Number(req.params.id);
 
   const { data: venta, error: ventaErr } = await supabase
@@ -338,9 +355,9 @@ app.get('/ventas/:id', requireAuth, async (req, res) => {
     fecha: venta.fecha,
     detalles: mappedDetalles
   });
-});
+}));
 
-app.post('/ventas', requireAuth, async (req, res) => {
+app.post('/ventas', requireAuth, asyncHandler(async (req, res) => {
   const { trabajador_id, productos } = req.body || {};
   const trabajadorFinal = req.user.rol === 'admin' ? trabajador_id : req.user.id;
 
@@ -356,11 +373,11 @@ app.post('/ventas', requireAuth, async (req, res) => {
   if (error) return httpError(res, 400, error.message);
 
   res.status(201).json(data);
-});
+}));
 
 // ==================== REPORTES ====================
 
-app.get('/reportes/ventas-por-trabajador', requireAuth, requireAdmin, async (req, res) => {
+app.get('/reportes/ventas-por-trabajador', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
   const { fecha_inicio, fecha_fin } = req.query || {};
 
   const { data, error } = await supabase.rpc('sales_by_worker', {
@@ -370,9 +387,9 @@ app.get('/reportes/ventas-por-trabajador', requireAuth, requireAdmin, async (req
 
   if (error) return httpError(res, 500, error.message);
   res.json(data || []);
-});
+}));
 
-app.get('/reportes/productos-mas-vendidos', requireAuth, async (req, res) => {
+app.get('/reportes/productos-mas-vendidos', requireAuth, asyncHandler(async (req, res) => {
   const { fecha_inicio, fecha_fin } = req.query || {};
 
   const { data, error } = await supabase.rpc('top_products', {
@@ -382,9 +399,9 @@ app.get('/reportes/productos-mas-vendidos', requireAuth, async (req, res) => {
 
   if (error) return httpError(res, 500, error.message);
   res.json(data || []);
-});
+}));
 
-app.get('/reportes/resumen', requireAuth, async (req, res) => {
+app.get('/reportes/resumen', requireAuth, asyncHandler(async (req, res) => {
   const userId = req.user.rol === 'admin' ? null : req.user.id;
 
   const { data, error } = await supabase.rpc('dashboard_summary', {
@@ -393,7 +410,7 @@ app.get('/reportes/resumen', requireAuth, async (req, res) => {
 
   if (error) return httpError(res, 500, error.message);
   res.json(data || {});
-});
+}));
 
 // Health check
 app.get('/health', (req, res) => res.json({ ok: true }));

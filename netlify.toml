@@ -1,6 +1,7 @@
 [build]
   publish = "frontend"
   functions = "netlify/functions"
+  command = "npm ci"
 
 # En producción y en netlify dev, el frontend llama a /api/*
 [[redirects]]
