@@ -1123,10 +1123,21 @@ function cerrarModalTicket() {
 
 function imprimirTicket() {
   const contenido = qs('ticket-contenido') ? qs('ticket-contenido').innerHTML : '';
+  // Crear un contenedor temporal para imprimir solo el ticket
+  const printArea = document.createElement('div');
+  printArea.id = 'ticket-print-area';
+  printArea.style.width = '58mm';
+  printArea.style.margin = '0 auto';
+  printArea.innerHTML = contenido;
+
+  // Guardar el contenido original del body
   const body = document.body;
-  const original = body.innerHTML;
-  // Solo el ticket para imprimir
-  body.innerHTML = `<div id='ticket-print-area' style='width:58mm; margin:0 auto;'>${contenido}</div>`;
+  const originalChildren = Array.from(body.childNodes);
+
+  // Limpiar el body y agregar solo el ticket
+  body.innerHTML = '';
+  body.appendChild(printArea);
+
   // Forzar estilos de impresión
   const style = document.createElement('style');
   style.innerHTML = `
@@ -1137,13 +1148,14 @@ function imprimirTicket() {
     @page { size: 58mm auto; margin: 3mm; }
   `;
   document.head.appendChild(style);
+
   window.print();
-  // Restaurar después de imprimir
+
+  // Restaurar el contenido original después de imprimir
   setTimeout(() => {
-    body.innerHTML = original;
+    body.innerHTML = '';
+    originalChildren.forEach(node => body.appendChild(node));
     document.head.removeChild(style);
-    // Recargar scripts para restaurar eventos
-    location.reload();
   }, 500);
 }
 
