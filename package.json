@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node backend/server.js",
     "dev": "nodemon backend/server.js",
-    "seed": "node backend/seed-productos.js"
+    "seed": "node backend/seed-productos.js",
+    "seed-workers": "node backend/seed-trabajadores.js"
   },
   "keywords": [
     "inventario",

@@ -60,27 +60,20 @@ function initDatabase() {
       )
     `);
 
-    // Insertar trabajadores iniciales si no existen
-    db.get('SELECT COUNT(*) as count FROM trabajadores', (err, row) => {
-      if (!err && row.count === 0) {
-        const defaultPassword = bcrypt.hashSync('123456', 10);
-        const stmt = db.prepare('INSERT INTO trabajadores (nombre, usuario, password, rol, telefono, activo) VALUES (?, ?, ?, ?, ?, ?)');
+    // Asegurar trabajadores iniciales
+    const stmt = db.prepare('INSERT OR IGNORE INTO trabajadores (nombre, usuario, password, rol, telefono, activo) VALUES (?, ?, ?, ?, ?, ?)');
+    const defaultPassword = bcrypt.hashSync('123456', 10);
 
-        // Admin
-        stmt.run('Administrador', 'admin', defaultPassword, 'admin', '', 1);
+    // Admin
+    stmt.run('Administrador', 'admin', defaultPassword, 'admin', '', 1);
 
-        // Trabajadores
-        stmt.run('Trabajador 1', 'trabajador1', defaultPassword, 'trabajador', '', 1);
-        stmt.run('Trabajador 2', 'trabajador2', defaultPassword, 'trabajador', '', 1);
-        stmt.run('Trabajador 3', 'trabajador3', defaultPassword, 'trabajador', '', 1);
+    // Trabajadores Team
+    stmt.run('Garifa', 'garifa', defaultPassword, 'trabajador', '', 1);
+    stmt.run('Fabiola', 'fabiola', defaultPassword, 'trabajador', '', 1);
+    stmt.run('Brenda', 'brenda', defaultPassword, 'trabajador', '', 1);
 
-        stmt.finalize();
-        console.log('✅ Trabajadores iniciales creados');
-        console.log('📝 Usuarios por defecto:');
-        console.log('   Admin: usuario=admin, password=123456');
-        console.log('   Trabajadores: usuario=trabajador1/2/3, password=123456');
-      }
-    });
+    stmt.finalize();
+    console.log('✅ Verificación de personal completada');
 
     // Insertar productos reales si no existen
     db.get('SELECT COUNT(*) as count FROM productos', (err, row) => {
