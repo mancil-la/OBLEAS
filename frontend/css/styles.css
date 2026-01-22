@@ -792,18 +792,47 @@ body {
     font-size: 9px;
     line-height: 1.2;
     font-weight: 900;
+    /* ==================== TICKET 58MM ==================== */
+}
+
+@media print {
+    @page {
+        margin: 0;
+        size: auto;
+    }
+
+    body * {
+        visibility: hidden;
+    }
+
+    #ticket-contenido,
+    #ticket-contenido * {
+        visibility: visible;
+    }
+
+    #ticket-contenido {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 54mm;
+        /* Ancho para impresora 58mm */
+        margin: 0;
+        padding: 2mm 1mm;
+        /* Padding mínimo */
+    }
 }
 
 #ticket-contenido {
-    width: 44mm;
-    /* Un poco menos de 48mm para margen de seguridad */
-    margin: 0 auto;
+    width: 54mm;
+    /* Ancho para vista previa */
+    margin: 0;
     font-family: 'Courier New', monospace;
     background-color: #fff;
     color: #000;
-    padding: 0;
+    padding: 2mm;
     border: none;
-    font-size: 10px;
+    font-size: 11px;
+    /* Fuente un poco más grande */
     line-height: 1.1;
 }
 
@@ -819,27 +848,28 @@ body {
 }
 
 .ticket-logo {
-    width: 30px;
-    height: 30px;
+    width: 40px;
+    /* Logo más visible */
+    height: 40px;
     object-fit: contain;
     margin: 0 auto 2px;
     display: block;
 }
 
 .ticket-header h2 {
-    font-size: 12px;
+    font-size: 13px;
     margin: 2px 0;
     text-transform: uppercase;
 }
 
 .ticket-header p {
-    font-size: 9px;
+    font-size: 10px;
     margin: 0;
 }
 
 .ticket-info {
     margin: 5px 0;
-    font-size: 9px;
+    font-size: 10px;
     text-align: left;
 }
 
@@ -858,7 +888,7 @@ body {
     display: flex;
     justify-content: space-between;
     margin-bottom: 4px;
-    font-size: 9px;
+    font-size: 10px;
     font-weight: bold;
 }
 
@@ -869,7 +899,7 @@ body {
 
 .ticket-total {
     font-weight: bold;
-    font-size: 13px;
+    font-size: 14px;
     text-align: right;
     margin-top: 5px;
     border-top: 1px solid #000;
