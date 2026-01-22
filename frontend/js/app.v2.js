@@ -1113,27 +1113,76 @@ async function mostrarTicket(ventaId, autoPrint = false) {
     const cont = qs('ticket-contenido');
     if (cont) cont.innerHTML = ticketHTML;
 
-    // Asegurarnos de usar 'active' para mostrar el modal del ticket
     const modal = qs('modal-ticket');
-    if (modal) {
-      modal.classList.add('active'); // Mostrar el modal para preparar la impresión
 
-      if (autoPrint) {
-        // Esperar un momento a que el modal sea visible y el navegador lo renderice
-        setTimeout(() => {
-          window.print();
-
-          // Cerrar el modal automáticamente después de enviar a imprimir
-          // Damos un tiempo extra para asegurar que el diálogo de impresión se haya abierto
-          setTimeout(() => {
-            cerrarModalTicket();
-          }, 500);
-        }, 800);
-      }
+    if (autoPrint) {
+      // IMPRESIÓN AUTOMÁTICA VIA IFRAME (Estrategia más compatible)
+      imprimirViaIframe(ticketHTML);
+    } else {
+      // MOSTRAR MODAL (Solo si no es auto-print, ej. desde historial)
+      if (modal) modal.classList.add('active');
     }
   } catch (e) {
+    console.error(e);
     alert(e.message || 'Error al mostrar el ticket');
   }
+}
+
+// Función para imprimir usando el iframe oculto (Solución definitiva para Android/PC)
+function imprimirViaIframe(html) {
+  const iframe = document.getElementById('iframe-impresion');
+  if (!iframe) {
+    window.print(); // Fallback si no existe el iframe
+    return;
+  }
+
+  const doc = iframe.contentWindow.document;
+  doc.open();
+  doc.write(`
+    <html>
+      <head>
+        <style>
+          @page { size: 58mm auto; margin: 0; }
+          body { 
+            margin: 0; 
+            padding: 0; 
+            width: 58mm; 
+            font-family: 'Courier New', monospace;
+            background: #fff;
+            color: #000;
+          }
+          #ticket-contenido { 
+            width: 58mm; 
+            padding: 2mm; 
+            box-sizing: border-box;
+          }
+          .ticket-header { text-align: center; margin-bottom: 5px; border-bottom: 1px dashed #000; padding-bottom: 5px; }
+          .ticket-logo { width: 140px; height: auto; display: block; margin: 0 auto 5px; }
+          .ticket-header h2 { font-size: 15px; margin: 4px 0; text-transform: uppercase; }
+          .ticket-header p { font-size: 11px; margin: 0; }
+          .ticket-info { margin: 5px 0; font-size: 11px; }
+          .ticket-info p { margin: 2px 0; }
+          .ticket-productos { margin: 5px 0; padding: 5px 0; border-top: 1px dashed #000; border-bottom: 1px dashed #000; }
+          .ticket-producto { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 11px; font-weight: bold; }
+          .ticket-producto > div:first-child { flex: 1; padding-right: 5px; }
+          .ticket-total { font-weight: 900; font-size: 16px; text-align: right; margin-top: 6px; border-top: 1px solid #000; padding-top: 4px; }
+          .ticket-footer { text-align: center; margin-top: 10px; font-size: 11px; padding-bottom: 20mm; }
+        </style>
+      </head>
+      <body>
+        <div id="ticket-contenido">
+          ${html}
+        </div>
+        <script>
+          // Esperar a que las imágenes carguen antes de imprimir
+          window.onload = function() {
+            window.print();
+          };
+        <\/script>
+      </body>
+    </html>
+  `);
+  doc.close();
 }
 
 function cerrarModalTicket() {
@@ -1142,7 +1191,8 @@ function cerrarModalTicket() {
 }
 
 function imprimirTicket() {
-  window.print();
+  const html = qs('ticket-contenido') ? qs('ticket-contenido').innerHTML : '';
+  imprimirViaIframe(html);
 }
 
 window.mostrarTicket = mostrarTicket;
