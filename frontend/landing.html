@@ -710,13 +710,82 @@
         }
 
         /* ==================== RESPONSIVE ==================== */
+        /* ==================== RESPONSIVE ==================== */
         @media (max-width: 768px) {
+            .navbar {
+                padding: 1rem;
+            }
+
+            .navbar-container {
+                position: relative;
+            }
+
             .navbar-links {
                 display: none;
+                flex-direction: column;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                background: rgba(15, 23, 42, 0.98);
+                backdrop-filter: blur(10px);
+                padding: 1rem;
+                border-radius: 0 0 20px 20px;
+                gap: 1rem;
+                text-align: center;
+                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            }
+
+            .navbar-links.active {
+                display: flex;
+            }
+
+            .navbar-cta {
+                display: none;
+                /* Ocultar botón CTA en header móvil para ahorrar espacio */
             }
 
             .mobile-toggle {
                 display: block;
+                font-size: 1.5rem;
+            }
+
+            .hero {
+                padding-top: 5rem;
+                text-align: center;
+            }
+
+            .hero h1 {
+                font-size: 2.2rem;
+            }
+
+            .hero p {
+                font-size: 1rem;
+                padding: 0 1rem;
+            }
+
+            .hero-buttons {
+                flex-direction: column;
+                padding: 0 2rem;
+            }
+
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .features,
+            .products,
+            .contact {
+                padding: 3rem 1rem;
+            }
+
+            .section-header h2 {
+                font-size: 1.8rem;
+            }
+
+            .products-showcase {
+                margin-bottom: 2rem;
             }
 
             .contact-grid {
@@ -724,16 +793,12 @@
                 gap: 3rem;
             }
 
-            .hero h1 {
-                font-size: 2.5rem;
+            .contact-form {
+                padding: 1.5rem;
             }
 
-            .hero p {
-                font-size: 1rem;
-            }
-
-            .section-header h2 {
-                font-size: 2rem;
+            .footer-logo img {
+                width: 50px;
             }
         }
     </style>
@@ -928,7 +993,7 @@
                             </div>
                             <div class="contact-item-text">
                                 <h4>Pedidos</h4>
-                                <p>+52 1 123 456 7890</p>
+                                <p>+52 1 56 6534 6174</p>
                             </div>
                         </div>
                     </div>
@@ -981,7 +1046,7 @@
     </footer>
 
     <!-- WhatsApp Floating Button -->
-    <a href="https://wa.me/52XXXXXXXXXX" class="whatsapp-float" target="_blank" title="Contáctanos por WhatsApp">
+    <a href="https://wa.me/5215665346174" class="whatsapp-float" target="_blank" title="Contáctanos por WhatsApp">
         <i class="fab fa-whatsapp"></i>
     </a>
 
@@ -1024,7 +1089,7 @@
             );
 
             // Replace with your actual WhatsApp number
-            const whatsappNumber = '52XXXXXXXXXX';
+            const whatsappNumber = '5215665346174';
             window.open(`https://wa.me/${whatsappNumber}?text=${whatsappMessage}`, '_blank');
 
             // Reset form
@@ -1035,8 +1100,16 @@
         // Mobile menu toggle
         function toggleMobileMenu() {
             const links = document.querySelector('.navbar-links');
-            links.style.display = links.style.display === 'flex' ? 'none' : 'flex';
+            links.classList.toggle('active');
         }
+
+        // Close mobile menu when clicking a link
+        document.querySelectorAll('.navbar-links a').forEach(link => {
+            link.addEventListener('click', () => {
+                const links = document.querySelector('.navbar-links');
+                links.classList.remove('active');
+            });
+        });
     </script>
 </body>
 
