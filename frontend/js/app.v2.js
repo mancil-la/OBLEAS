@@ -1071,28 +1071,38 @@ async function mostrarTicket(ventaId) {
     const venta = await fetchJson(`${API_URL}/ventas/${ventaId}`, { method: 'GET' });
     if (!venta) return;
 
-    // Fecha corta para ahorrar espacio
-    const f = new Date(venta.fecha);
-    const fecha = `${f.getDate()}/${f.getMonth() + 1} ${f.getHours()}:${String(f.getMinutes()).padStart(2, '0')}`;
+    const fecha = new Date(venta.fecha).toLocaleString('es-ES');
 
     let ticketHTML = `
       <div class="ticket-paper">
-        <div class="ticket-header">OBLEAS</div>
-        <div class="ticket-info">#${venta.id} ${fecha}</div>
+        <div class="ticket-header">
+          <h2>Obleas & Botanas</h2>
+          <p>Sistema de Ventas</p>
+        </div>
+        <div class="ticket-info">
+          <p><strong>Ticket #:</strong> ${venta.id}</p>
+          <p><strong>Trabajador:</strong> ${venta.trabajador_nombre}</p>
+          <p><strong>Fecha:</strong> ${fecha}</p>
+        </div>
         <div class="ticket-productos">
     `;
 
     (venta.detalles || []).forEach((d) => {
-      // Truncar nombre a 18 chars max
-      const nombre = d.producto_nombre.length > 18 ? d.producto_nombre.substring(0, 17) + '.' : d.producto_nombre;
-      const precio = Number(d.precio_unitario).toFixed(0);
-      const sub = Number(d.subtotal).toFixed(0);
-      ticketHTML += `<div class="ticket-producto">${nombre}<br>${d.cantidad}x$${precio}=$${sub}</div>`;
+      ticketHTML += `
+        <div class="ticket-producto">
+          <div>
+            <div>${d.producto_nombre}</div>
+            <div>${d.cantidad} x ${formatMoney(d.precio_unitario)}</div>
+          </div>
+          <div>${formatMoney(d.subtotal)}</div>
+        </div>
+      `;
     });
 
     ticketHTML += `
         </div>
-        <div class="ticket-total">$${Number(venta.total).toFixed(0)}</div>
+        <div class="ticket-total"><p>TOTAL: ${formatMoney(venta.total)}</p></div>
+        <div class="ticket-footer"><p>¡Gracias por su compra!</p></div>
       </div>
     `;
 
@@ -1132,66 +1142,74 @@ function imprimirTicket() {
   const style = document.createElement('style');
   style.innerHTML = `
     @media print {
-      * {
-        margin: 0 !important;
-        padding: 0 !important;
-        box-sizing: border-box !important;
-      }
       html, body {
-        width: 48mm !important;
-        max-width: 48mm !important;
+        background: #fff !important;
+        color: #111 !important;
+        width: 58mm !important;
+        min-width: 58mm !important;
+        max-width: 58mm !important;
         margin: 0 !important;
         padding: 0 !important;
-        background: #fff !important;
       }
       #ticket-print-area {
-        width: 48mm !important;
-        max-width: 48mm !important;
-        font-family: monospace !important;
-        font-size: 8px !important;
-        font-weight: 900 !important;
-        color: #000 !important;
-        line-height: 1.1 !important;
+        width: 58mm !important;
+        min-width: 58mm !important;
+        max-width: 58mm !important;
+        margin: 0 !important;
+        font-family: 'Courier New', monospace !important;
+        font-size: 10px !important;
+        color: #111 !important;
+        background: #fff !important;
+        line-height: 1.05 !important;
+        box-sizing: border-box !important;
+        display: block !important;
+        text-align: left !important;
+        page-break-after: always !important;
         padding: 0 !important;
       }
-      #ticket-print-area .ticket-paper {
-        width: 48mm !important;
-        max-width: 48mm !important;
-      }
       #ticket-print-area .ticket-header {
+        font-size: 11px !important;
+        font-weight: bold !important;
         text-align: center !important;
-        font-size: 10px !important;
-        font-weight: 900 !important;
-        border-bottom: 1px solid #000 !important;
-        padding-bottom: 1mm !important;
-        margin-bottom: 1mm !important;
+        margin-bottom: 2px !important;
+        margin-top: 0 !important;
+        padding: 0 !important;
       }
       #ticket-print-area .ticket-info {
-        text-align: center !important;
-        font-size: 7px !important;
-        margin-bottom: 1mm !important;
-      }
-      #ticket-print-area .ticket-productos {
-        border-top: 1px solid #000 !important;
-        border-bottom: 1px solid #000 !important;
-        padding: 1mm 0 !important;
+        font-size: 9px !important;
+        margin-bottom: 2px !important;
+        margin-top: 0 !important;
+        padding: 0 !important;
       }
       #ticket-print-area .ticket-producto {
-        font-size: 8px !important;
-        margin-bottom: 0.5mm !important;
-        word-wrap: break-word !important;
-        overflow-wrap: break-word !important;
+        margin-bottom: 1px !important;
+        gap: 2px !important;
       }
       #ticket-print-area .ticket-total {
+        font-size: 11px !important;
+        font-weight: bold !important;
+        color: #000 !important;
         text-align: right !important;
-        font-size: 12px !important;
-        font-weight: 900 !important;
-        border-top: 1px solid #000 !important;
-        padding-top: 1mm !important;
-        margin-top: 1mm !important;
+        margin-top: 2px !important;
+        margin-bottom: 2px !important;
+        padding: 0 !important;
+      }
+      #ticket-print-area .ticket-footer {
+        font-size: 9px !important;
+        color: #222 !important;
+        text-align: center !important;
+        margin-top: 2px !important;
+        border-top: 1px dashed #111 !important;
+        padding-top: 2px !important;
+      }
+      #ticket-print-area .ticket-productos {
+        padding: 0 !important;
+        border-top: 1px dashed #111 !important;
+        border-bottom: 1px dashed #111 !important;
+        margin: 2px 0 !important;
       }
     }
-    @page { size: 48mm auto; margin: 0; }
+    @page { size: 58mm auto; margin: 1mm; }
   `;
   document.head.appendChild(style);
 
