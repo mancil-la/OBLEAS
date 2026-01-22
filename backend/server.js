@@ -18,12 +18,13 @@ app.use(session({
   secret: 'obleas-secreto-2026',
   resave: false,
   saveUninitialized: false,
-  cookie: { 
+  cookie: {
     secure: false,
     maxAge: 24 * 60 * 60 * 1000 // 24 horas
   }
 }));
 app.use(express.static(path.join(__dirname, '../frontend')));
+app.use('/assets', express.static(path.join(__dirname, '../assets')));
 
 // Inicializar base de datos
 db.initDatabase();
@@ -67,7 +68,7 @@ function requireAdmin(req, res, next) {
 // Login
 app.post('/api/auth/login', async (req, res) => {
   const { usuario, password } = req.body;
-  
+
   if (!usuario || !password) {
     return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
   }
@@ -79,12 +80,12 @@ app.post('/api/auth/login', async (req, res) => {
     if (!user) {
       return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
     }
-    
+
     // Crear sesión
     req.session.userId = user.id;
     req.session.userName = user.nombre;
     req.session.userRole = user.rol;
-    
+
     res.json({
       id: user.id,
       nombre: user.nombre,
@@ -143,7 +144,7 @@ app.get('/api/productos/:id', requireAuth, (req, res) => {
 // Crear nuevo producto
 app.post('/api/productos', requireAdmin, (req, res) => {
   const { nombre, categoria, precio, stock } = req.body;
-  
+
   if (!nombre || !precio) {
     res.status(400).json({ error: 'Nombre y precio son requeridos' });
     return;
@@ -161,7 +162,7 @@ app.post('/api/productos', requireAdmin, (req, res) => {
 // Actualizar producto
 app.put('/api/productos/:id', requireAdmin, (req, res) => {
   const { nombre, categoria, precio, stock } = req.body;
-  
+
   db.updateProduct(req.params.id, { nombre, categoria, precio, stock }, (err) => {
     if (err) {
       res.status(500).json({ error: err.message });
@@ -175,7 +176,7 @@ app.put('/api/productos/:id', requireAdmin, (req, res) => {
 app.post('/api/productos/:id/ajustar-stock', requireAdmin, (req, res) => {
   const { delta } = req.body;
   const deltaNum = Number(delta);
-  
+
   if (Number.isNaN(deltaNum) || !Number.isFinite(deltaNum) || deltaNum === 0) {
     return res.status(400).json({ error: 'Delta inválido' });
   }
@@ -271,10 +272,10 @@ app.delete('/api/trabajadores/:id', requireAdmin, (req, res) => {
 // Obtener todas las ventas
 app.get('/api/ventas', requireAuth, (req, res) => {
   const { trabajador_id, fecha_inicio, fecha_fin } = req.query;
-  
+
   // Si no es admin, solo puede ver sus propias ventas
   const filtroTrabajador = req.session.userRole === 'admin' ? trabajador_id : req.session.userId;
-  
+
   db.getAllSales({ trabajador_id: filtroTrabajador, fecha_inicio, fecha_fin }, (err, ventas) => {
     if (err) {
       res.status(500).json({ error: err.message });
@@ -295,7 +296,7 @@ app.get('/api/ventas/:id', requireAuth, (req, res) => {
       res.status(404).json({ error: 'Venta no encontrada' });
       return;
     }
-    
+
     db.getSaleDetails(req.params.id, (err, detalles) => {
       if (err) {
         res.status(500).json({ error: err.message });
@@ -310,10 +311,10 @@ app.get('/api/ventas/:id', requireAuth, (req, res) => {
 // Crear nueva venta
 app.post('/api/ventas', requireAuth, (req, res) => {
   const { trabajador_id, productos } = req.body;
-  
+
   // Si no es admin, solo puede crear ventas para sí mismo
   const trabajadorFinal = req.session.userRole === 'admin' ? trabajador_id : req.session.userId;
-  
+
   if (!trabajadorFinal || !productos || productos.length === 0) {
     res.status(400).json({ error: 'Trabajador y productos son requeridos' });
     return;
@@ -333,7 +334,7 @@ app.post('/api/ventas', requireAuth, (req, res) => {
 // Resumen de ventas por trabajador
 app.get('/api/reportes/ventas-por-trabajador', requireAdmin, (req, res) => {
   const { fecha_inicio, fecha_fin } = req.query;
-  
+
   db.getSalesByWorker({ fecha_inicio, fecha_fin }, (err, reporte) => {
     if (err) {
       res.status(500).json({ error: err.message });
@@ -346,7 +347,7 @@ app.get('/api/reportes/ventas-por-trabajador', requireAdmin, (req, res) => {
 // Productos más vendidos
 app.get('/api/reportes/productos-mas-vendidos', requireAuth, (req, res) => {
   const { fecha_inicio, fecha_fin } = req.query;
-  
+
   db.getTopProducts({ fecha_inicio, fecha_fin }, (err, productos) => {
     if (err) {
       res.status(500).json({ error: err.message });
@@ -359,7 +360,7 @@ app.get('/api/reportes/productos-mas-vendidos', requireAuth, (req, res) => {
 // Resumen general
 app.get('/api/reportes/resumen', requireAuth, (req, res) => {
   const userId = req.session.userRole === 'admin' ? null : req.session.userId;
-  
+
   db.getDashboardSummary(userId, (err, resumen) => {
     if (err) {
       res.status(500).json({ error: err.message });
