@@ -956,9 +956,12 @@ async function completarVenta() {
       body: JSON.stringify(payload)
     });
 
-    alert('Venta registrada exitosamente');
-    await mostrarTicket(result.id);
+    // Modificación para impresión directa:
+    // 1. No mostrar alert
+    // 2. Renderizar ticket y mandar imprimir
+    await mostrarTicket(result.id, true);
 
+    // 3. Limpiar venta inmediatamente
     cancelarVenta();
 
     await cargarProductos();
@@ -1066,7 +1069,7 @@ window.verDetalleVenta = verDetalleVenta;
 
 // -------------------- Ticket --------------------
 
-async function mostrarTicket(ventaId) {
+async function mostrarTicket(ventaId, autoPrint = false) {
   try {
     const venta = await fetchJson(`${API_URL}/ventas/${ventaId}`, { method: 'GET' });
     if (!venta) return;
@@ -1110,8 +1113,18 @@ async function mostrarTicket(ventaId) {
     const cont = qs('ticket-contenido');
     if (cont) cont.innerHTML = ticketHTML;
 
-    const modal = qs('modal-ticket');
-    if (modal) modal.classList.add('active');
+    // Si es impresión automática (venta nueva)
+    if (autoPrint) {
+      // Pequeño timeout para asegurar que se renderizó
+      setTimeout(() => {
+        window.print();
+        // Opcional: Cerrar modal si se abrió, o no abrirlo
+      }, 500);
+    } else {
+      // Comportamiento normal (ver historial)
+      const modal = qs('modal-ticket');
+      if (modal) modal.classList.add('active');
+    }
   } catch (e) {
     alert(e.message || 'Error al mostrar el ticket');
   }
