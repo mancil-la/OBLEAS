@@ -840,20 +840,32 @@ body {
         visibility: hidden;
     }
 
-    #ticket-contenido,
-    #ticket-contenido * {
-        visibility: visible;
+    /* Ocultar el modal original para que no interfiera */
+    #modal-ticket,
+    #modal-ticket * {
+        display: none !important;
     }
 
-    #ticket-contenido {
+    /* Mostrar SOLO el contenedor de impresión oculta */
+    #impresion-oculta,
+    #impresion-oculta * {
+        visibility: visible;
+        display: block !important;
+    }
+
+    #impresion-oculta {
         position: absolute;
         left: 0;
         top: 0;
-        width: 54mm;
-        /* Ancho para impresora 58mm */
+        width: 100%;
         margin: 0;
-        padding: 2mm 1mm;
-        /* Padding mínimo */
+        padding: 0;
+    }
+
+    /* Reutilizar estilos del ticket dentro del contenedor oculto */
+    #impresion-oculta .ticket-paper {
+        width: 54mm;
+        margin: 0;
     }
 }
 

@@ -1115,10 +1115,20 @@ async function mostrarTicket(ventaId, autoPrint = false) {
 
     // Si es impresión automática (venta nueva)
     if (autoPrint) {
+      const hiddenCont = qs('impresion-oculta');
+      if (hiddenCont) {
+        // Copiamos el ticket al contenedor oculto con estilos forzados para impresión
+        hiddenCont.innerHTML = `
+            <div style="width: 54mm; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.2; padding: 2mm; background: white; color: black;">
+                ${ticketHTML}
+            </div>`;
+      }
+
       // Pequeño timeout para asegurar que se renderizó
       setTimeout(() => {
         window.print();
-        // Opcional: Cerrar modal si se abrió, o no abrirlo
+        // Limpiar después de imprimir (opcional, pero limpio)
+        if (hiddenCont) hiddenCont.innerHTML = '';
       }, 500);
     } else {
       // Comportamiento normal (ver historial)
