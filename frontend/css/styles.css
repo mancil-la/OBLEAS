@@ -848,11 +848,12 @@ body {
 }
 
 .ticket-logo {
-    width: 40px;
-    /* Logo más visible */
-    height: 40px;
+    width: 120px;
+    /* Logo GRANDE (aprox. 3x-4x más grande) */
+    height: auto;
+    /* Mantener proporción */
     object-fit: contain;
-    margin: 0 auto 2px;
+    margin: 0 auto 5px;
     display: block;
 }
 
@@ -904,6 +905,12 @@ body {
     margin-top: 5px;
     border-top: 1px solid #000;
     padding-top: 2px;
+}
+
+/* Espacio para cortar el papel */
+#ticket-contenido {
+    padding-bottom: 15mm !important;
+    /* Espacio extra para el corte */
 }
 
 
