@@ -822,18 +822,20 @@ body {
     }
 }
 
+/* ==================== TICKET 58MM MEJORADO ==================== */
 #ticket-contenido {
     width: 54mm;
-    /* Ancho para vista previa */
     margin: 0;
     font-family: 'Courier New', monospace;
     background-color: #fff;
     color: #000;
     padding: 2mm;
     border: none;
-    font-size: 11px;
-    /* Fuente un poco más grande */
-    line-height: 1.1;
+    font-size: 12px;
+    /* Aumentado de 11px a 12px */
+    line-height: 1.2;
+    padding-bottom: 20mm !important;
+    /* Más espacio para corte */
 }
 
 .ticket-paper {
@@ -848,34 +850,36 @@ body {
 }
 
 .ticket-logo {
-    width: 120px;
-    /* Logo GRANDE (aprox. 3x-4x más grande) */
+    width: 150px;
+    /* Aumentado de 120px a 150px */
     height: auto;
-    /* Mantener proporción */
     object-fit: contain;
     margin: 0 auto 5px;
     display: block;
 }
 
 .ticket-header h2 {
-    font-size: 13px;
-    margin: 2px 0;
+    font-size: 15px;
+    /* Aumentado de 13px a 15px */
+    margin: 4px 0;
     text-transform: uppercase;
 }
 
 .ticket-header p {
-    font-size: 10px;
+    font-size: 11px;
+    /* Aumentado de 10px a 11px */
     margin: 0;
 }
 
 .ticket-info {
     margin: 5px 0;
-    font-size: 10px;
+    font-size: 11px;
+    /* Aumentado */
     text-align: left;
 }
 
 .ticket-info p {
-    margin: 1px 0;
+    margin: 2px 0;
 }
 
 .ticket-productos {
@@ -888,8 +892,9 @@ body {
 .ticket-producto {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 4px;
-    font-size: 10px;
+    margin-bottom: 6px;
+    font-size: 11px;
+    /* Aumentado */
     font-weight: bold;
 }
 
@@ -899,18 +904,14 @@ body {
 }
 
 .ticket-total {
-    font-weight: bold;
-    font-size: 14px;
+    font-weight: 900;
+    font-size: 16px;
+    /* Aumentado de 14px a 16px */
     text-align: right;
-    margin-top: 5px;
-    border-top: 1px solid #000;
-    padding-top: 2px;
-}
-
-/* Espacio para cortar el papel */
-#ticket-contenido {
-    padding-bottom: 15mm !important;
-    /* Espacio extra para el corte */
+    margin-top: 8px;
+    border-top: 2px solid #000;
+    /* Borde más visible */
+    padding-top: 4px;
 }
 
 
