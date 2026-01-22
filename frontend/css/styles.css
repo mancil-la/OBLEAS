@@ -882,7 +882,7 @@ body {
 #ticket-contenido {
     width: 58mm;
     margin: 0 auto;
-    font-family: 'Courier New', monospace;
+    font-family: monospace;
     background-color: #fff;
     color: #000;
     padding: 1mm;

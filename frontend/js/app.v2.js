@@ -1147,7 +1147,7 @@ function imprimirViaIframe(html) {
             margin: 0; 
             padding: 0; 
             width: 58mm; 
-            font-family: 'Courier New', monospace;
+            font-family: monospace;
             background: #fff;
             color: #000;
           }
