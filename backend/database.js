@@ -65,15 +65,15 @@ function initDatabase() {
       if (!err && row.count === 0) {
         const defaultPassword = bcrypt.hashSync('123456', 10);
         const stmt = db.prepare('INSERT INTO trabajadores (nombre, usuario, password, rol, telefono, activo) VALUES (?, ?, ?, ?, ?, ?)');
-        
+
         // Admin
         stmt.run('Administrador', 'admin', defaultPassword, 'admin', '', 1);
-        
+
         // Trabajadores
         stmt.run('Trabajador 1', 'trabajador1', defaultPassword, 'trabajador', '', 1);
         stmt.run('Trabajador 2', 'trabajador2', defaultPassword, 'trabajador', '', 1);
         stmt.run('Trabajador 3', 'trabajador3', defaultPassword, 'trabajador', '', 1);
-        
+
         stmt.finalize();
         console.log('✅ Trabajadores iniciales creados');
         console.log('📝 Usuarios por defecto:');
@@ -82,19 +82,57 @@ function initDatabase() {
       }
     });
 
-    // Insertar productos de ejemplo si no existen
+    // Insertar productos reales si no existen
     db.get('SELECT COUNT(*) as count FROM productos', (err, row) => {
       if (!err && row.count === 0) {
         const stmt = db.prepare('INSERT INTO productos (nombre, categoria, precio, stock) VALUES (?, ?, ?, ?)');
-        stmt.run('Obleas Vainilla', 'Obleas', 10.00, 100);
-        stmt.run('Obleas Chocolate', 'Obleas', 10.00, 100);
-        stmt.run('Obleas Fresa', 'Obleas', 10.00, 100);
-        stmt.run('Papitas Clásicas', 'Botanas', 15.00, 50);
-        stmt.run('Papitas Picantes', 'Botanas', 15.00, 50);
-        stmt.run('Chicharrones', 'Botanas', 20.00, 30);
-        stmt.run('Palomitas', 'Botanas', 12.00, 40);
+
+        // Productos de $30.00
+        stmt.run('Obleas', 'Obleas', 30.00, 50);
+        stmt.run('Semillas Cristalizadas', 'Semillas', 30.00, 30);
+        stmt.run('Semillas Horneadas', 'Semillas', 30.00, 30);
+        stmt.run('Ciruelas con Nuez', 'Frutos Secos', 30.00, 25);
+        stmt.run('Galletas de Amaranto', 'Galletas', 30.00, 40);
+        stmt.run('Doraditas de Nata', 'Galletas', 30.00, 35);
+        stmt.run('Verdura Deshidratada', 'Verduras', 30.00, 20);
+
+        // Gomitas $20.00
+        stmt.run('Gomitas de Guayaba', 'Gomitas', 20.00, 50);
+        stmt.run('Gomitas de Maracuyá', 'Gomitas', 20.00, 50);
+        stmt.run('Gomitas de Lichi', 'Gomitas', 20.00, 45);
+        stmt.run('Gomitas de Guanábana', 'Gomitas', 20.00, 45);
+        stmt.run('Gomitas de Mango', 'Gomitas', 20.00, 50);
+
+        // Dulces $20.00
+        stmt.run('Bombón con Nuez', 'Dulces', 20.00, 40);
+        stmt.run('Pasas con Chocolate', 'Dulces', 20.00, 35);
+        stmt.run('Huesitos de Chocolate', 'Dulces', 20.00, 40);
+
+        // Alegrías $20.00
+        stmt.run('Alegrías de Miel', 'Alegrías', 20.00, 45);
+        stmt.run('Alegrías de Chocolate', 'Alegrías', 20.00, 45);
+        stmt.run('Alegrías Choco Menta', 'Alegrías', 20.00, 40);
+
+        // Botanas $20.00
+        stmt.run('Choco Hojuela', 'Botanas', 20.00, 35);
+        stmt.run('Enjambres', 'Botanas', 20.00, 30);
+        stmt.run('Muéganos', 'Botanas', 20.00, 30);
+
+        // Churros $20.00
+        stmt.run('Churros de Sal', 'Churros', 20.00, 40);
+        stmt.run('Churros de Chipotle', 'Churros', 20.00, 40);
+        stmt.run('Churros de Tajín', 'Churros', 20.00, 40);
+
+        // Cacahuates $20.00
+        stmt.run('Hot Nuts', 'Cacahuates', 20.00, 50);
+        stmt.run('Cacahuates Queso', 'Cacahuates', 20.00, 50);
+        stmt.run('Cacahuates Español con Ajo', 'Cacahuates', 20.00, 45);
+        stmt.run('Abas', 'Cacahuates', 20.00, 40);
+        stmt.run('Botanero', 'Cacahuates', 20.00, 50);
+        stmt.run('Papatinas', 'Cacahuates', 20.00, 45);
+
         stmt.finalize();
-        console.log('✅ Productos de ejemplo creados');
+        console.log('✅ Productos del catálogo creados (37 productos)');
       }
     });
 
@@ -117,7 +155,7 @@ function createProduct(producto, callback) {
   db.run(
     'INSERT INTO productos (nombre, categoria, precio, stock) VALUES (?, ?, ?, ?)',
     [nombre, categoria || 'General', precio, stock || 0],
-    function(err) {
+    function (err) {
       callback(err, this.lastID);
     }
   );
@@ -185,11 +223,11 @@ function loginUser(usuario, password, callback) {
     (err, user) => {
       if (err) return callback(err);
       if (!user) return callback(null, null);
-      
+
       // Verificar contraseña
       const isValid = bcrypt.compareSync(password, user.password);
       if (!isValid) return callback(null, null);
-      
+
       callback(null, user);
     }
   );
@@ -250,10 +288,10 @@ function deactivateWorker(id, callback) {
 
 function updateWorker(id, trabajador, callback) {
   const { nombre, usuario, password, telefono, activo } = trabajador;
-  
+
   // Si hay nueva contraseña, encriptarla
   const hashedPassword = password ? bcrypt.hashSync(password, 10) : undefined;
-  
+
   db.run(
     `UPDATE trabajadores SET 
       nombre = COALESCE(?, nombre),
@@ -336,7 +374,7 @@ function createSale(venta, callback) {
     db.run(
       'INSERT INTO ventas (trabajador_id, total) VALUES (?, ?)',
       [trabajador_id, total],
-      function(err) {
+      function (err) {
         if (err) {
           db.run('ROLLBACK');
           callback(err);
@@ -352,7 +390,7 @@ function createSale(venta, callback) {
           if (hasError) return;
 
           const subtotal = producto.precio * producto.cantidad;
-          
+
           db.run(
             'INSERT INTO detalle_ventas (venta_id, producto_id, cantidad, precio_unitario, subtotal) VALUES (?, ?, ?, ?, ?)',
             [ventaId, producto.id, producto.cantidad, producto.precio, subtotal],
@@ -403,7 +441,7 @@ function getSalesByWorker(filters, callback) {
 
   if (filters.fecha_inicio || filters.fecha_fin) {
     query += ' WHERE 1=1';
-    
+
     if (filters.fecha_inicio) {
       query += ' AND DATE(v.fecha) >= DATE(?)';
       params.push(filters.fecha_inicio);
