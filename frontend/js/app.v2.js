@@ -1113,27 +1113,23 @@ async function mostrarTicket(ventaId, autoPrint = false) {
     const cont = qs('ticket-contenido');
     if (cont) cont.innerHTML = ticketHTML;
 
-    // Si es impresión automática (venta nueva)
-    if (autoPrint) {
-      const hiddenCont = qs('impresion-oculta');
-      if (hiddenCont) {
-        // Copiamos el ticket al contenedor oculto con estilos forzados para impresión
-        hiddenCont.innerHTML = `
-            <div style="width: 54mm; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.2; padding: 2mm; background: white; color: black;">
-                ${ticketHTML}
-            </div>`;
-      }
+    // Asegurarnos de usar 'active' para mostrar el modal del ticket
+    const modal = qs('modal-ticket');
+    if (modal) {
+      modal.classList.add('active'); // Mostrar el modal para preparar la impresión
 
-      // Pequeño timeout para asegurar que se renderizó
-      setTimeout(() => {
-        window.print();
-        // Limpiar después de imprimir (opcional, pero limpio)
-        if (hiddenCont) hiddenCont.innerHTML = '';
-      }, 500);
-    } else {
-      // Comportamiento normal (ver historial)
-      const modal = qs('modal-ticket');
-      if (modal) modal.classList.add('active');
+      if (autoPrint) {
+        // Esperar un momento a que el modal sea visible y el navegador lo renderice
+        setTimeout(() => {
+          window.print();
+
+          // Cerrar el modal automáticamente después de enviar a imprimir
+          // Damos un tiempo extra para asegurar que el diálogo de impresión se haya abierto
+          setTimeout(() => {
+            cerrarModalTicket();
+          }, 500);
+        }, 800);
+      }
     }
   } catch (e) {
     alert(e.message || 'Error al mostrar el ticket');
@@ -1146,105 +1142,7 @@ function cerrarModalTicket() {
 }
 
 function imprimirTicket() {
-  const contenido = qs('ticket-contenido') ? qs('ticket-contenido').innerHTML : '';
-  // Crear un contenedor temporal para imprimir solo el ticket
-  const printArea = document.createElement('div');
-  printArea.id = 'ticket-print-area';
-  printArea.style.width = '58mm';
-  printArea.style.margin = '0 auto';
-  printArea.innerHTML = contenido;
-
-  // Guardar el contenido original del body
-  const body = document.body;
-  const originalChildren = Array.from(body.childNodes);
-
-  // Limpiar el body y agregar solo el ticket
-  body.innerHTML = '';
-  body.appendChild(printArea);
-
-  // Forzar estilos de impresión
-  const style = document.createElement('style');
-  style.innerHTML = `
-    @media print {
-      html, body {
-        background: #fff !important;
-        color: #111 !important;
-        width: 58mm !important;
-        min-width: 58mm !important;
-        max-width: 58mm !important;
-        margin: 0 !important;
-        padding: 0 !important;
-      }
-      #ticket-print-area {
-        width: 58mm !important;
-        min-width: 58mm !important;
-        max-width: 58mm !important;
-        margin: 0 !important;
-        font-family: 'Courier New', monospace !important;
-        font-size: 10px !important;
-        color: #111 !important;
-        background: #fff !important;
-        line-height: 1.05 !important;
-        box-sizing: border-box !important;
-        display: block !important;
-        text-align: left !important;
-        page-break-after: always !important;
-        padding: 0 !important;
-      }
-      #ticket-print-area .ticket-header {
-        font-size: 11px !important;
-        font-weight: bold !important;
-        text-align: center !important;
-        margin-bottom: 2px !important;
-        margin-top: 0 !important;
-        padding: 0 !important;
-      }
-      #ticket-print-area .ticket-info {
-        font-size: 9px !important;
-        margin-bottom: 2px !important;
-        margin-top: 0 !important;
-        padding: 0 !important;
-      }
-      #ticket-print-area .ticket-producto {
-        margin-bottom: 1px !important;
-        gap: 2px !important;
-      }
-      #ticket-print-area .ticket-total {
-        font-size: 11px !important;
-        font-weight: bold !important;
-        color: #000 !important;
-        text-align: right !important;
-        margin-top: 2px !important;
-        margin-bottom: 2px !important;
-        padding: 0 !important;
-      }
-      #ticket-print-area .ticket-footer {
-        font-size: 9px !important;
-        color: #222 !important;
-        text-align: center !important;
-        margin-top: 2px !important;
-        border-top: 1px dashed #111 !important;
-        padding-top: 2px !important;
-      }
-      #ticket-print-area .ticket-productos {
-        padding: 0 !important;
-        border-top: 1px dashed #111 !important;
-        border-bottom: 1px dashed #111 !important;
-        margin: 2px 0 !important;
-      }
-    }
-    @page { size: 58mm auto; margin: 1mm; }
-  `;
-  document.head.appendChild(style);
-
   window.print();
-
-  // Restaurar el contenido original después de imprimir
-  setTimeout(() => {
-    body.innerHTML = '';
-    originalChildren.forEach(node => body.appendChild(node));
-    document.head.removeChild(style);
-  }, 500);
 }
 
 window.mostrarTicket = mostrarTicket;
@@ -1279,7 +1177,7 @@ async function generarReporteTrabajadores() {
         <p>Total Ventas: ${t.total_ventas}</p>
         <p>Total Vendido: ${formatMoney(t.total_vendido)}</p>
       </div>
-    `).join('');
+  `).join('');
   } catch (e) {
     alert(e.message || 'Error al generar el reporte');
   }
@@ -1312,7 +1210,7 @@ async function generarReporteProductos() {
         <p>Cantidad Vendida: ${p.cantidad_vendida}</p>
         <p>Total Vendido: ${formatMoney(p.total_vendido)}</p>
       </div>
-    `).join('');
+  `).join('');
   } catch (e) {
     alert(e.message || 'Error al generar el reporte');
   }

@@ -840,49 +840,71 @@ body {
         visibility: hidden;
     }
 
-    /* Ocultar el modal original para que no interfiera */
     #modal-ticket,
-    #modal-ticket * {
-        display: none !important;
-    }
-
-    /* Mostrar SOLO el contenedor de impresión oculta */
-    #impresion-oculta,
-    #impresion-oculta * {
+    #modal-ticket .modal-content,
+    #modal-ticket .modal-body,
+    #modal-ticket #ticket-contenido,
+    #modal-ticket #ticket-contenido * {
         visibility: visible;
-        display: block !important;
     }
 
-    #impresion-oculta {
+    #modal-ticket {
         position: absolute;
         left: 0;
         top: 0;
         width: 100%;
         margin: 0;
         padding: 0;
+        background: white !important;
+        display: block !important;
+        z-index: 9999;
     }
 
-    /* Reutilizar estilos del ticket dentro del contenedor oculto */
-    #impresion-oculta .ticket-paper {
-        width: 54mm;
-        margin: 0;
+    #ticket-contenido {
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+
+    .modal-header,
+    .modal-footer,
+    .close {
+        display: none !important;
+    }
+
+    .modal-content {
+        box-shadow: none !important;
+        border: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        max-width: none !important;
+        width: 100% !important;
+        background: transparent !important;
+    }
+
+    .ticket-paper {
+        margin: 0 !important;
+        box-shadow: none !important;
+        width: 100% !important;
+        max-width: 100% !important;
     }
 }
 
 /* ==================== TICKET 58MM MEJORADO ==================== */
 #ticket-contenido {
-    width: 54mm;
-    margin: 0;
+    width: 58mm;
+    margin: 0 auto;
     font-family: 'Courier New', monospace;
     background-color: #fff;
     color: #000;
-    padding: 2mm;
+    padding: 1mm;
     border: none;
-    font-size: 12px;
-    /* Aumentado de 11px a 12px */
+    font-size: 13px;
     line-height: 1.2;
     padding-bottom: 20mm !important;
-    /* Más espacio para corte */
 }
 
 .ticket-paper {
