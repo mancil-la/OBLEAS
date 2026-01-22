@@ -795,64 +795,88 @@ body {
 }
 
 #ticket-contenido {
-    font-family: monospace;
+    width: 44mm;
+    /* Un poco menos de 48mm para margen de seguridad */
+    margin: 0 auto;
+    font-family: 'Courier New', monospace;
     background-color: #fff;
     color: #000;
-    padding: 0.5rem;
-    border: 1px solid #000;
-    font-size: 9px;
-    line-height: 1.2;
+    padding: 0;
+    border: none;
+    font-size: 10px;
+    line-height: 1.1;
+}
+
+.ticket-paper {
+    width: 100%;
 }
 
 .ticket-header {
     text-align: center;
-    margin-bottom: 2px;
-    padding-bottom: 2px;
-    border-bottom: 1px solid #000;
-    font-size: 11px;
-    font-weight: 900;
+    margin-bottom: 5px;
+    padding-bottom: 5px;
+    border-bottom: 1px dashed #000;
 }
 
 .ticket-logo {
-    width: 40px;
-    height: 40px;
+    width: 30px;
+    height: 30px;
     object-fit: contain;
     margin: 0 auto 2px;
     display: block;
 }
 
+.ticket-header h2 {
+    font-size: 12px;
+    margin: 2px 0;
+    text-transform: uppercase;
+}
+
+.ticket-header p {
+    font-size: 9px;
+    margin: 0;
+}
+
 .ticket-info {
-    margin-bottom: 2px;
-    font-size: 8px;
-    color: #000;
-    font-weight: 700;
-    text-align: center;
+    margin: 5px 0;
+    font-size: 9px;
+    text-align: left;
+}
+
+.ticket-info p {
+    margin: 1px 0;
 }
 
 .ticket-productos {
-    margin: 2px 0;
-    padding: 2px 0;
-    border-top: 1px solid #000;
-    border-bottom: 1px solid #000;
+    margin: 5px 0;
+    padding: 5px 0;
+    border-top: 1px dashed #000;
+    border-bottom: 1px dashed #000;
 }
 
 .ticket-producto {
-    display: block;
-    margin-bottom: 2px;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
     font-size: 9px;
-    font-weight: 900;
-    word-wrap: break-word;
+    font-weight: bold;
+}
+
+.ticket-producto>div:first-child {
+    flex: 1;
+    padding-right: 5px;
 }
 
 .ticket-total {
-    font-weight: 900;
-    font-size: 12px;
+    font-weight: bold;
+    font-size: 13px;
     text-align: right;
-    margin-top: 2px;
-    color: #000;
+    margin-top: 5px;
     border-top: 1px solid #000;
     padding-top: 2px;
 }
+
+
 
 /* ==================== BADGES ==================== */
 
