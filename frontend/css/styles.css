@@ -56,6 +56,13 @@ body {
     margin-bottom: 0.5rem;
 }
 
+.sidebar-logo {
+    width: 80px;
+    height: 80px;
+    object-fit: contain;
+    margin-bottom: 0.5rem;
+}
+
 .logo h2 {
     font-size: 1.2rem;
     font-weight: 600;
@@ -804,6 +811,14 @@ body {
     border-bottom: 1px solid #000;
     font-size: 11px;
     font-weight: 900;
+}
+
+.ticket-logo {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    margin: 0 auto 2px;
+    display: block;
 }
 
 .ticket-info {

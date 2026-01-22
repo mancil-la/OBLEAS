@@ -1076,6 +1076,7 @@ async function mostrarTicket(ventaId) {
     let ticketHTML = `
       <div class="ticket-paper">
         <div class="ticket-header">
+          <img src="../assets/logo.png" alt="Logo" class="ticket-logo">
           <h2>Obleas & Botanas</h2>
           <p>Sistema de Ventas</p>
         </div>

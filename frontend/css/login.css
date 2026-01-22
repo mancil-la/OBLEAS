@@ -43,6 +43,7 @@ body {
         opacity: 0;
         transform: translateY(30px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -63,10 +64,21 @@ body {
     animation: bounce 2s infinite;
 }
 
+.login-logo {
+    width: 120px;
+    height: 120px;
+    object-fit: contain;
+    margin-bottom: 1rem;
+    animation: bounce 2s infinite;
+}
+
 @keyframes bounce {
-    0%, 100% {
+
+    0%,
+    100% {
         transform: translateY(0);
     }
+
     50% {
         transform: translateY(-10px);
     }
@@ -222,23 +234,23 @@ body {
     .login-box {
         border-radius: 15px;
     }
-    
+
     .login-header {
         padding: 2rem 1.5rem;
     }
-    
+
     .login-header i {
         font-size: 3rem;
     }
-    
+
     .login-header h1 {
         font-size: 1.5rem;
     }
-    
+
     .login-form {
         padding: 1.5rem;
     }
-    
+
     .login-footer {
         padding: 1rem 1.5rem;
     }

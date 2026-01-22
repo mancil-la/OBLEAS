@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,51 +8,40 @@
     <link rel="stylesheet" href="css/login.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
+
 <body>
     <div class="login-container">
         <div class="login-box">
             <div class="login-header">
-                <i class="fas fa-cookie-bite"></i>
+                <img src="../assets/logo.png" alt="Obleas & Botanas Logo" class="login-logo">
                 <h1>Obleas & Botanas</h1>
                 <p>Sistema de Gestión de Inventario</p>
             </div>
-            
+
             <form id="login-form" class="login-form">
                 <div class="form-group">
                     <label for="usuario">
                         <i class="fas fa-user"></i> Usuario
                     </label>
-                    <input 
-                        type="text" 
-                        id="usuario" 
-                        class="form-control" 
-                        placeholder="Ingrese su usuario"
-                        required
-                        autocomplete="username"
-                    >
+                    <input type="text" id="usuario" class="form-control" placeholder="Ingrese su usuario" required
+                        autocomplete="username">
                 </div>
-                
+
                 <div class="form-group">
                     <label for="password">
                         <i class="fas fa-lock"></i> Contraseña
                     </label>
-                    <input 
-                        type="password" 
-                        id="password" 
-                        class="form-control" 
-                        placeholder="Ingrese su contraseña"
-                        required
-                        autocomplete="current-password"
-                    >
+                    <input type="password" id="password" class="form-control" placeholder="Ingrese su contraseña"
+                        required autocomplete="current-password">
                 </div>
-                
+
                 <div id="error-message" class="error-message hidden"></div>
-                
+
                 <button type="submit" class="btn-login">
                     <i class="fas fa-sign-in-alt"></i> Iniciar Sesión
                 </button>
             </form>
-            
+
             <div class="login-footer">
                 <div class="credentials-info">
                     <p><strong>Usuarios por defecto:</strong></p>
@@ -61,7 +51,8 @@
             </div>
         </div>
     </div>
-    
+
     <script src="js/login.js"></script>
 </body>
+
 </html>
