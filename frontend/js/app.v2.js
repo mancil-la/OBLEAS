@@ -1438,9 +1438,14 @@ function renderTablaAsignacionMasiva() {
       <td><strong>${p.stock_global}</strong></td>
       <td><span class="text-primary" style="font-weight:600;">${p.stock_trabajador}</span></td>
       <td>
-        <input type="number" class="form-control bulk-assign-input" 
-               data-id="${p.id}" data-global="${p.stock_global}" 
-               min="0" step="1" value="0" style="padding: 0.4rem; height: auto;">
+        <div class="assign-controls">
+          <input type="number" class="form-control bulk-assign-input" 
+                 id="assign-input-${p.id}"
+                 data-id="${p.id}" data-global="${p.stock_global}" 
+                 min="0" step="1" value="0" style="padding: 0.4rem; height: auto; width: 70px;">
+          <button type="button" class="btn-mini" onclick="sumarAsignacion(${p.id}, 1)">+1</button>
+          <button type="button" class="btn-mini" onclick="sumarAsignacion(${p.id}, 5)">+5</button>
+        </div>
       </td>
     </tr>
   `).join('');
@@ -1589,6 +1594,23 @@ async function repetirEntregaAnterior(productosRepetir) {
   }
 }
 
+function sumarAsignacion(id, delta) {
+  const input = document.getElementById(`assign-input-${id}`);
+  if (!input) return;
+
+  const current = Number(input.value || 0);
+  const global = Number(input.dataset.global || 0);
+  const next = current + delta;
+
+  if (next > global) {
+    input.value = global;
+  } else if (next < 0) {
+    input.value = 0;
+  } else {
+    input.value = next;
+  }
+}
+
 window.actualizarInterfazAsignacion = actualizarInterfazAsignacion;
 window.filtrarAsignacionMasiva = filtrarAsignacionMasiva;
 window.guardarAsignacionMasiva = guardarAsignacionMasiva;
@@ -1599,3 +1621,4 @@ window.cerrarModalHistorial = cerrarModalHistorial;
 window.verDetalleEntregaPasada = verDetalleEntregaPasada;
 window.cerrarModalDetalleEntrega = cerrarModalDetalleEntrega;
 window.repetirEntregaAnterior = repetirEntregaAnterior;
+window.sumarAsignacion = sumarAsignacion;

@@ -773,6 +773,31 @@ body {
     background: linear-gradient(90deg, #8b5cf6, #c084fc);
 }
 
+/* Controles de asignación masiva */
+.assign-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.btn-mini {
+    padding: 2px 6px;
+    font-size: 0.75rem;
+    border-radius: 4px;
+    background-color: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.btn-mini:hover {
+    background-color: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
 /* ==================== MODAL ==================== */
 
 .modal {
