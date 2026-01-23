@@ -737,6 +737,42 @@ body {
     font-size: 0.9rem;
 }
 
+/* Gráfica de Barras Dashboard */
+.chart-container {
+    padding: 1rem 0;
+}
+
+.chart-row {
+    margin-bottom: 1.25rem;
+}
+
+.chart-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.chart-bar-bg {
+    background-color: #f1f5f9;
+    height: 12px;
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.chart-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary-color), #60a5fa);
+    border-radius: 999px;
+    width: 0%;
+    transition: width 1s cubic-bezier(0.17, 0.67, 0.83, 0.67);
+}
+
+.chart-bar-fill.admin {
+    background: linear-gradient(90deg, #8b5cf6, #c084fc);
+}
+
 /* ==================== MODAL ==================== */
 
 .modal {

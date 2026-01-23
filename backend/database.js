@@ -438,63 +438,79 @@ function createSale(venta, callback) {
     db.run('BEGIN TRANSACTION');
 
     // Calcular total
-    let total = 0;
-    productos.forEach(p => {
-      total += p.precio * p.cantidad;
-    });
+    // 0. Obtener el rol del trabajador para saber qué stock descontar
+    db.get('SELECT rol FROM trabajadores WHERE id = ?', [trabajador_id], (err, worker) => {
+      if (err || !worker) {
+        db.run('ROLLBACK');
+        return callback(err || new Error('Trabajador no encontrado'));
+      }
 
-    // Insertar venta
-    db.run(
-      'INSERT INTO ventas (trabajador_id, total) VALUES (?, ?)',
-      [trabajador_id, total],
-      function (err) {
-        if (err) {
-          db.run('ROLLBACK');
-          callback(err);
-          return;
-        }
+      const isAdmin = worker.rol === 'admin';
 
-        const ventaId = this.lastID;
-        let completed = 0;
-        let hasError = false;
+      // 1. Insertar venta
+      db.run(
+        'INSERT INTO ventas (trabajador_id, total) VALUES (?, ?)',
+        [trabajador_id, total],
+        function (err) {
+          if (err) {
+            db.run('ROLLBACK');
+            return callback(err);
+          }
 
-        // Insertar detalles y actualizar stock del trabajador
-        productos.forEach(producto => {
-          if (hasError) return;
+          const ventaId = this.lastID;
+          let completed = 0;
+          let hasError = false;
 
-          const subtotal = producto.precio * producto.cantidad;
+          // 2. Insertar detalles y actualizar stock
+          productos.forEach(producto => {
+            if (hasError) return;
 
-          db.run(
-            'INSERT INTO detalle_ventas (venta_id, producto_id, cantidad, precio_unitario, subtotal) VALUES (?, ?, ?, ?, ?)',
-            [ventaId, producto.id, producto.cantidad, producto.precio, subtotal],
-            (err) => {
-              if (err) {
-                hasError = true;
-                db.run('ROLLBACK');
-                callback(err);
-                return;
-              }
+            const subtotal = producto.precio * producto.cantidad;
 
-              // Actualizar stock del TRABAJADOR
-              updateWorkerStock(trabajador_id, producto.id, producto.cantidad, (err) => {
+            db.run(
+              'INSERT INTO detalle_ventas (venta_id, producto_id, cantidad, precio_unitario, subtotal) VALUES (?, ?, ?, ?, ?)',
+              [ventaId, producto.id, producto.cantidad, producto.precio, subtotal],
+              (err) => {
                 if (err) {
                   hasError = true;
                   db.run('ROLLBACK');
-                  callback(err);
-                  return;
+                  return callback(err);
                 }
 
-                completed++;
-                if (completed === productos.length && !hasError) {
-                  db.run('COMMIT');
-                  callback(null, { id: ventaId, total, message: 'Venta registrada exitosamente' });
+                // 3. ACTUALIZACIÓN DE STOCK CONDICIONAL
+                if (isAdmin) {
+                  updateStock(producto.id, producto.cantidad, (err) => {
+                    if (err) {
+                      hasError = true;
+                      db.run('ROLLBACK');
+                      return callback(err);
+                    }
+                    checkCompletion();
+                  });
+                } else {
+                  updateWorkerStock(trabajador_id, producto.id, producto.cantidad, (err) => {
+                    if (err) {
+                      hasError = true;
+                      db.run('ROLLBACK');
+                      return callback(err);
+                    }
+                    checkCompletion();
+                  });
                 }
-              });
-            }
-          );
-        });
-      }
-    );
+
+                function checkCompletion() {
+                  completed++;
+                  if (completed === productos.length && !hasError) {
+                    db.run('COMMIT');
+                    callback(null, { id: ventaId, total, message: 'Venta registrada exitosamente' });
+                  }
+                }
+              }
+            );
+          });
+        }
+      );
+    });
   });
 }
 

@@ -305,21 +305,46 @@ async function cargarDashboard() {
 
 async function cargarGraficoVentasTrabajador() {
   try {
-    const data = await fetchJson(`${API_URL}/reportes/ventas-por-trabajador`, { method: 'GET' });
+    const hoy = new Date().toISOString().split('T')[0];
+    const data = await fetchJson(`${API_URL}/reportes/ventas-por-trabajador?fecha_inicio=${hoy}&fecha_fin=${hoy}`, { method: 'GET' });
     if (!data) return;
 
     const container = qs('ventas-trabajador-chart');
     if (!container) return;
 
-    container.innerHTML = '';
+    if (data.length === 0 || data.every(i => i.total_vendido === 0)) {
+      container.innerHTML = '<p class="text-center text-light">No hay ventas registradas hoy</p>';
+      return;
+    }
+
+    // Calcular el máximo para la escala de las barras
+    const maxVendido = Math.max(...data.map(i => i.total_vendido), 1);
+
+    container.innerHTML = '<div class="chart-container"></div>';
+    const chartBody = container.querySelector('.chart-container');
+
     data.forEach((item) => {
-      const div = document.createElement('div');
-      div.className = 'reporte-item';
-      div.innerHTML = `
-        <h4>${item.nombre}</h4>
-        <p>Ventas: ${item.total_ventas} | Total: ${formatMoney(item.total_vendido)}</p>
+      const porcentaje = (item.total_vendido / maxVendido) * 100;
+      const isAdmin = trabajadores.find(t => t.id === item.id)?.rol === 'admin';
+
+      const row = document.createElement('div');
+      row.className = 'chart-row';
+      row.innerHTML = `
+        <div class="chart-info">
+          <span>${item.nombre} ${isAdmin ? '<small>(Admin)</small>' : ''}</span>
+          <span>${formatMoney(item.total_vendido)} (${item.total_ventas})</span>
+        </div>
+        <div class="chart-bar-bg">
+          <div class="chart-bar-fill ${isAdmin ? 'admin' : ''}" style="width: 0%"></div>
+        </div>
       `;
-      container.appendChild(div);
+      chartBody.appendChild(row);
+
+      // Trigger animation
+      setTimeout(() => {
+        const fill = row.querySelector('.chart-bar-fill');
+        if (fill) fill.style.width = `${porcentaje}%`;
+      }, 100);
     });
   } catch (e) {
     console.error('Grafico ventas trabajador:', e);
@@ -678,12 +703,22 @@ function setupVentaPOSHandlers() {
     workerSelect.addEventListener('change', async () => {
       const tid = workerSelect.value;
       if (tid) {
-        // Cargar productos asignados a ESTE trabajador
+        const worker = trabajadores.find(t => String(t.id) === String(tid));
+        const isAdmin = worker && worker.rol === 'admin';
+
         try {
-          const data = await fetchJson(`${API_URL}/inventario/trabajador/${tid}`);
+          let data;
+          if (isAdmin) {
+            // Cargar productos del stock GLOBAL
+            data = await fetchJson(`${API_URL}/productos`);
+          } else {
+            // Cargar productos asignados a ESTE trabajador
+            data = await fetchJson(`${API_URL}/inventario/trabajador/${tid}`);
+          }
+
           // Transformamos para que renderVentaCatalogo lo use igual que 'productos'
           productos = data.map(i => ({
-            id: i.producto_id,
+            id: i.producto_id || i.id, // i.producto_id para inv_trabajador, i.id para productos global
             nombre: i.nombre,
             categoria: i.categoria,
             precio: i.precio,
@@ -691,7 +726,7 @@ function setupVentaPOSHandlers() {
           }));
           renderVentaPOS(true);
         } catch (e) {
-          console.error('Error cargando inv trabajador:', e);
+          console.error('Error cargando inventario:', e);
           productos = [];
           renderVentaPOS(true);
         }
@@ -744,13 +779,16 @@ function renderVentaCatalogo() {
   if (!grid) return;
 
   const q = normalizeText(ventaBusqueda);
+  const words = q.split(' ').filter(w => w.length > 0);
 
   const filtered = (productos || [])
     .filter((p) => {
       if (ventaCategoria !== 'Todas' && String(p.categoria || '') !== ventaCategoria) return false;
-      if (!q) return true;
-      const hay = `${p.nombre || ''} ${p.categoria || ''}`;
-      return normalizeText(hay).includes(q);
+      if (words.length === 0) return true;
+
+      const hay = normalizeText(`${p.nombre || ''} ${p.categoria || ''}`);
+      // Debe contener TODAS las palabras buscadas (búsqueda fragmentada)
+      return words.every(word => hay.includes(word));
     })
     .sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es'));
 
