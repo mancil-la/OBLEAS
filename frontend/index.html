@@ -42,6 +42,10 @@
                     <i class="fas fa-file-alt"></i>
                     <span>Reportes</span>
                 </a>
+                <a href="#" class="menu-item" data-section="asignar-stock" id="menu-asignar-stock">
+                    <i class="fas fa-dolly"></i>
+                    <span>Asignar Stock</span>
+                </a>
             </nav>
         </aside>
 
@@ -288,6 +292,38 @@
                     </div>
                 </div>
             </section>
+
+            <!-- Asignar Stock Section -->
+            <section id="asignar-stock" class="content-section">
+                <div class="section-header">
+                    <div class="filter-group">
+                        <select id="asignar-trabajador-select" class="form-control"
+                            onchange="cargarTablaAsignaciones()">
+                            <option value="">Seleccionar trabajador...</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="mostrarModalAsignar()">
+                            <i class="fas fa-plus"></i> Asignar Nuevo Stock
+                        </button>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Categoría</th>
+                                <th>Stock Actual</th>
+                                <th>Última Actualización</th>
+                            </tr>
+                        </thead>
+                        <tbody id="asignaciones-tabla">
+                            <tr>
+                                <td colspan="4" class="text-center">Seleccione un trabajador para ver su inventario</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
         </main>
     </div>
 
@@ -400,6 +436,38 @@
 
     <!-- Iframe oculto para impresión (Más compatible con Android) -->
     <iframe id="iframe-impresion" style="display:none;"></iframe>
+
+    <!-- Modal Asignar Stock -->
+    <div id="modal-asignar" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Asignar Stock a Trabajador</h3>
+                <span class="close" onclick="cerrarModalAsignar()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Trabajador:</label>
+                    <select id="modal-asignar-trabajador" class="form-control" required>
+                        <option value="">Seleccionar...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Producto (Stock Global Disponible):</label>
+                    <select id="modal-asignar-producto" class="form-control" required>
+                        <option value="">Seleccionar...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Cantidad a entregar:</label>
+                    <input type="number" id="modal-asignar-cantidad" class="form-control" min="1" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="cerrarModalAsignar()">Cancelar</button>
+                <button class="btn btn-primary" onclick="guardarAsignacion()">Confirmar Entrega</button>
+            </div>
+        </div>
+    </div>
 
     <script src="js/app.v2.js"></script>
 </body>

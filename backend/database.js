@@ -60,6 +60,20 @@ function initDatabase() {
       )
     `);
 
+    // Tabla de inventario por trabajador
+    db.run(`
+      CREATE TABLE IF NOT EXISTS inventario_trabajador (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        trabajador_id INTEGER NOT NULL,
+        producto_id INTEGER NOT NULL,
+        stock INTEGER DEFAULT 0,
+        fecha_actualizacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(trabajador_id, producto_id),
+        FOREIGN KEY (trabajador_id) REFERENCES trabajadores(id),
+        FOREIGN KEY (producto_id) REFERENCES productos(id)
+      )
+    `);
+
     // Asegurar trabajadores iniciales
     const stmt = db.prepare('INSERT OR IGNORE INTO trabajadores (nombre, usuario, password, rol, telefono, activo) VALUES (?, ?, ?, ?, ?, ?)');
     const defaultPassword = bcrypt.hashSync('123456', 10);
@@ -205,6 +219,72 @@ function adjustStock(productoId, delta, callback) {
       (err2) => callback(err2, newStock)
     );
   });
+}
+
+// ==================== INVENTARIO POR TRABAJADOR ====================
+
+function getWorkerInventory(trabajadorId, callback) {
+  db.all(
+    `SELECT i.*, p.nombre, p.categoria, p.precio, p.stock as stock_global
+     FROM inventario_trabajador i
+     JOIN productos p ON i.producto_id = p.id
+     WHERE i.trabajador_id = ?`,
+    [trabajadorId],
+    callback
+  );
+}
+
+function assignStockToWorker(trabajadorId, productoId, cantidad, callback) {
+  const qty = Number(cantidad);
+  db.serialize(() => {
+    db.run('BEGIN TRANSACTION');
+
+    // 1. Verificar stock global
+    db.get('SELECT stock FROM productos WHERE id = ?', [productoId], (err, prod) => {
+      if (err || !prod) {
+        db.run('ROLLBACK');
+        return callback(err || new Error('Producto no encontrado'));
+      }
+
+      if (prod.stock < qty) {
+        db.run('ROLLBACK');
+        return callback(new Error('Stock global insuficiente para la asignación'));
+      }
+
+      // 2. Restar del stock global
+      db.run('UPDATE productos SET stock = stock - ? WHERE id = ?', [qty, productoId], (err2) => {
+        if (err2) {
+          db.run('ROLLBACK');
+          return callback(err2);
+        }
+
+        // 3. Sumar al stock del trabajador (INSERT OR REPLACE o usar logic de UNIQUE)
+        db.run(`
+          INSERT INTO inventario_trabajador (trabajador_id, producto_id, stock)
+          VALUES (?, ?, ?)
+          ON CONFLICT(trabajador_id, producto_id) DO UPDATE SET
+          stock = stock + excluded.stock,
+          fecha_actualizacion = CURRENT_TIMESTAMP
+        `, [trabajadorId, productoId, qty], (err3) => {
+          if (err3) {
+            db.run('ROLLBACK');
+            return callback(err3);
+          }
+
+          db.run('COMMIT');
+          callback(null, true);
+        });
+      });
+    });
+  });
+}
+
+function updateWorkerStock(trabajadorId, productoId, cantidad, callback) {
+  db.run(
+    'UPDATE inventario_trabajador SET stock = stock - ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE trabajador_id = ? AND producto_id = ?',
+    [cantidad, trabajadorId, productoId],
+    callback
+  );
 }
 
 // ==================== FUNCIONES DE TRABAJADORES ====================
@@ -378,7 +458,7 @@ function createSale(venta, callback) {
         let completed = 0;
         let hasError = false;
 
-        // Insertar detalles y actualizar stock
+        // Insertar detalles y actualizar stock del trabajador
         productos.forEach(producto => {
           if (hasError) return;
 
@@ -395,8 +475,8 @@ function createSale(venta, callback) {
                 return;
               }
 
-              // Actualizar stock
-              updateStock(producto.id, producto.cantidad, (err) => {
+              // Actualizar stock del TRABAJADOR
+              updateWorkerStock(trabajador_id, producto.id, producto.cantidad, (err) => {
                 if (err) {
                   hasError = true;
                   db.run('ROLLBACK');
@@ -531,5 +611,8 @@ module.exports = {
   createSale,
   getSalesByWorker,
   getTopProducts,
-  getDashboardSummary
+  getDashboardSummary,
+  getWorkerInventory,
+  assignStockToWorker,
+  updateWorkerStock
 };

@@ -267,6 +267,41 @@ app.delete('/api/trabajadores/:id', requireAdmin, (req, res) => {
   });
 });
 
+// ==================== RUTAS DE INVENTARIO TRABAJADOR ====================
+
+// Obtener inventario de un trabajador
+app.get('/api/inventario/trabajador/:id', requireAuth, (req, res) => {
+  const trabajadorId = req.params.id;
+
+  // Si no es admin, solo puede ver su propio inventario
+  if (req.session.userRole !== 'admin' && String(req.session.userId) !== String(trabajadorId)) {
+    return res.status(403).json({ error: 'Acceso denegado' });
+  }
+
+  db.getWorkerInventory(trabajadorId, (err, inventario) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(inventario);
+  });
+});
+
+// Asignar stock a un trabajador (Solo Admin)
+app.post('/api/inventario/asignar', requireAdmin, (req, res) => {
+  const { trabajador_id, producto_id, cantidad } = req.body;
+
+  if (!trabajador_id || !producto_id || !cantidad || cantidad <= 0) {
+    return res.status(400).json({ error: 'Datos de asignación inválidos' });
+  }
+
+  db.assignStockToWorker(trabajador_id, producto_id, cantidad, (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message });
+    }
+    res.json({ message: 'Inventario asignado exitosamente' });
+  });
+});
+
 // ==================== RUTAS DE VENTAS ====================
 
 // Obtener todas las ventas

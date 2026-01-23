@@ -130,7 +130,7 @@ function configurarUI() {
   if (usuarioActual.rol !== 'admin') {
     document.querySelectorAll('.menu-item').forEach((item) => {
       const section = item.dataset.section;
-      if (section === 'productos' || section === 'trabajadores' || section === 'reportes') {
+      if (section === 'productos' || section === 'trabajadores' || section === 'reportes' || section === 'asignar-stock') {
         item.style.display = 'none';
       }
     });
@@ -199,7 +199,8 @@ function mostrarSeccion(sectionId) {
     productos: 'Inventario de Productos',
     historial: 'Historial de Ventas',
     trabajadores: 'Gestión de Trabajadores',
-    reportes: 'Reportes'
+    reportes: 'Reportes',
+    'asignar-stock': 'Asignar Inventario a Trabajadores'
   };
 
   const title = qs('page-title');
@@ -212,8 +213,18 @@ function mostrarSeccion(sectionId) {
       break;
     case 'ventas':
       cargarSelectTrabajadores();
-      cargarSelectProductos();
       renderVentaPOS();
+
+      // Si el usuario es trabajador, cargar su inventario automáticamente
+      if (usuarioActual.rol === 'trabajador') {
+        const workerSelect = qs('trabajador-select');
+        if (workerSelect) {
+          workerSelect.value = usuarioActual.id;
+          // Disparar el evento change para cargar los productos
+          workerSelect.dispatchEvent(new Event('change'));
+        }
+      }
+
       actualizarListaVenta();
       break;
     case 'productos':
@@ -234,10 +245,29 @@ function mostrarSeccion(sectionId) {
     case 'trabajadores':
       cargarTablaTrabajadores();
       break;
-    case 'reportes':
-      // Nada automático
+    case 'asignar-stock':
+      cargarSelectTrabajadoresAsignar();
       break;
   }
+}
+
+// -------------------- Helpers Fecha --------------------
+
+function formatDateTime(dbDate) {
+  if (!dbDate) return '';
+  // SQLite CURRENT_TIMESTAMP devuelve YYYY-MM-DD HH:MM:SS en UTC.
+  // Agregamos 'Z' para que el constructor de Date sepa que es UTC y lo pase a local.
+  const dateStr = dbDate.includes(' ') ? dbDate.replace(' ', 'T') + 'Z' : dbDate;
+  const d = new Date(dateStr);
+  return d.toLocaleString('es-ES', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  });
 }
 
 // -------------------- Datos iniciales --------------------
@@ -642,6 +672,35 @@ function setupVentaPOSHandlers() {
       renderVentaCatalogo();
     });
   }
+
+  const workerSelect = qs('trabajador-select');
+  if (workerSelect) {
+    workerSelect.addEventListener('change', async () => {
+      const tid = workerSelect.value;
+      if (tid) {
+        // Cargar productos asignados a ESTE trabajador
+        try {
+          const data = await fetchJson(`${API_URL}/inventario/trabajador/${tid}`);
+          // Transformamos para que renderVentaCatalogo lo use igual que 'productos'
+          productos = data.map(i => ({
+            id: i.producto_id,
+            nombre: i.nombre,
+            categoria: i.categoria,
+            precio: i.precio,
+            stock: i.stock
+          }));
+          renderVentaPOS(true);
+        } catch (e) {
+          console.error('Error cargando inv trabajador:', e);
+          productos = [];
+          renderVentaPOS(true);
+        }
+      } else {
+        productos = [];
+        renderVentaPOS(true);
+      }
+    });
+  }
 }
 
 function getCartQty(productId) {
@@ -1019,7 +1078,7 @@ async function cargarTablaVentas(filtros = {}) {
     }
 
     tbody.innerHTML = ventas.map((v) => {
-      const fecha = new Date(v.fecha).toLocaleString('es-ES');
+      const fecha = formatDateTime(v.fecha);
       return `
         <tr>
           <td>${v.id}</td>
@@ -1074,7 +1133,7 @@ async function mostrarTicket(ventaId, autoPrint = false) {
     const venta = await fetchJson(`${API_URL}/ventas/${ventaId}`, { method: 'GET' });
     if (!venta) return;
 
-    const fecha = new Date(venta.fecha).toLocaleString('es-ES');
+    const fecha = formatDateTime(venta.fecha);
 
     let ticketHTML = `
       <div class="ticket-paper">
@@ -1268,3 +1327,99 @@ async function generarReporteProductos() {
 
 window.generarReporteTrabajadores = generarReporteTrabajadores;
 window.generarReporteProductos = generarReporteProductos;
+
+// -------------------- Gestión de Inventario (Admin) --------------------
+
+function cargarSelectTrabajadoresAsignar() {
+  const select = qs('asignar-trabajador-select');
+  if (!select) return;
+
+  select.innerHTML = '<option value="">Seleccionar trabajador...</option>' +
+    trabajadores.filter(t => t.rol !== 'admin').map(t => `<option value="${t.id}">${t.nombre}</option>`).join('');
+}
+
+async function cargarTablaAsignaciones() {
+  const tid = qs('asignar-trabajador-select').value;
+  const tbody = qs('asignaciones-tabla');
+  if (!tbody) return;
+
+  if (!tid) {
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center">Seleccione un trabajador para ver su inventario</td></tr>';
+    return;
+  }
+
+  try {
+    const data = await fetchJson(`${API_URL}/inventario/trabajador/${tid}`);
+    if (!data.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center">El trabajador no tiene productos asignados</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.map(i => `
+      <tr>
+        <td>${i.nombre}</td>
+        <td>${i.categoria}</td>
+        <td><strong>${i.stock}</strong></td>
+        <td>${formatDateTime(i.fecha_actualizacion)}</td>
+      </tr>
+    `).join('');
+  } catch (e) {
+    console.error(e);
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Error al cargar datos</td></tr>';
+  }
+}
+
+async function mostrarModalAsignar() {
+  const tid = qs('asignar-trabajador-select').value;
+  const modal = qs('modal-asignar');
+  if (!modal) return;
+
+  const selectT = qs('modal-asignar-trabajador');
+  const selectP = qs('modal-asignar-producto');
+
+  // Cargar trabajadores en el modal
+  selectT.innerHTML = '<option value="">Seleccionar...</option>' +
+    trabajadores.filter(t => t.rol !== 'admin').map(t => `<option value="${t.id}">${t.nombre}</option>`).join('');
+
+  if (tid) selectT.value = tid;
+
+  // Cargar productos globales disponibles
+  const prodsGlobales = await fetchJson(`${API_URL}/productos`);
+  selectP.innerHTML = '<option value="">Seleccionar producto...</option>' +
+    prodsGlobales.map(p => `<option value="${p.id}">${p.nombre} (Stock: ${p.stock})</option>`).join('');
+
+  modal.classList.add('active');
+}
+
+function cerrarModalAsignar() {
+  qs('modal-asignar').classList.remove('active');
+}
+
+async function guardarAsignacion() {
+  const trabajador_id = qs('modal-asignar-trabajador').value;
+  const producto_id = qs('modal-asignar-producto').value;
+  const cantidad = Number(qs('modal-asignar-cantidad').value);
+
+  if (!trabajador_id || !producto_id || cantidad <= 0) {
+    alert('Por favor complete todos los datos correctamente');
+    return;
+  }
+
+  try {
+    await fetchJson(`${API_URL}/inventario/asignar`, {
+      method: 'POST',
+      body: JSON.stringify({ trabajador_id, producto_id, cantidad })
+    });
+
+    alert('Inventario asignado correctamente');
+    cerrarModalAsignar();
+    cargarTablaAsignaciones();
+  } catch (e) {
+    alert(e.message || 'Error al asignar inventario');
+  }
+}
+
+window.cargarTablaAsignaciones = cargarTablaAsignaciones;
+window.mostrarModalAsignar = mostrarModalAsignar;
+window.cerrarModalAsignar = cerrarModalAsignar;
+window.guardarAsignacion = guardarAsignacion;
