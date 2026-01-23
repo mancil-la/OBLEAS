@@ -438,6 +438,11 @@ function createSale(venta, callback) {
     db.run('BEGIN TRANSACTION');
 
     // Calcular total
+    let total = 0;
+    productos.forEach(p => {
+      total += p.precio * p.cantidad;
+    });
+
     // 0. Obtener el rol del trabajador para saber qué stock descontar
     db.get('SELECT rol FROM trabajadores WHERE id = ?', [trabajador_id], (err, worker) => {
       if (err || !worker) {
@@ -471,31 +476,28 @@ function createSale(venta, callback) {
               'INSERT INTO detalle_ventas (venta_id, producto_id, cantidad, precio_unitario, subtotal) VALUES (?, ?, ?, ?, ?)',
               [ventaId, producto.id, producto.cantidad, producto.precio, subtotal],
               (err) => {
+                if (hasError) return;
                 if (err) {
                   hasError = true;
                   db.run('ROLLBACK');
                   return callback(err);
                 }
 
+                const handleStockResult = (err) => {
+                  if (hasError) return;
+                  if (err) {
+                    hasError = true;
+                    db.run('ROLLBACK');
+                    return callback(err);
+                  }
+                  checkCompletion();
+                };
+
                 // 3. ACTUALIZACIÓN DE STOCK CONDICIONAL
                 if (isAdmin) {
-                  updateStock(producto.id, producto.cantidad, (err) => {
-                    if (err) {
-                      hasError = true;
-                      db.run('ROLLBACK');
-                      return callback(err);
-                    }
-                    checkCompletion();
-                  });
+                  updateStock(producto.id, producto.cantidad, handleStockResult);
                 } else {
-                  updateWorkerStock(trabajador_id, producto.id, producto.cantidad, (err) => {
-                    if (err) {
-                      hasError = true;
-                      db.run('ROLLBACK');
-                      return callback(err);
-                    }
-                    checkCompletion();
-                  });
+                  updateWorkerStock(trabajador_id, producto.id, producto.cantidad, handleStockResult);
                 }
 
                 function checkCompletion() {
