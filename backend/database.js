@@ -74,6 +74,27 @@ function initDatabase() {
       )
     `);
 
+    // Historial de entregas (Log de qué se le dio a quién y cuándo)
+    db.run(`
+      CREATE TABLE IF NOT EXISTS entregas_inventario (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        trabajador_id INTEGER NOT NULL,
+        fecha DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (trabajador_id) REFERENCES trabajadores(id)
+      )
+    `);
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS detalle_entregas_inventario (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        entrega_id INTEGER NOT NULL,
+        producto_id INTEGER NOT NULL,
+        cantidad INTEGER NOT NULL,
+        FOREIGN KEY (entrega_id) REFERENCES entregas_inventario(id),
+        FOREIGN KEY (producto_id) REFERENCES productos(id)
+      )
+    `);
+
     // Asegurar trabajadores iniciales
     const stmt = db.prepare('INSERT OR IGNORE INTO trabajadores (nombre, usuario, password, rol, telefono, activo) VALUES (?, ?, ?, ?, ?, ?)');
     const defaultPassword = bcrypt.hashSync('123456', 10);
@@ -285,6 +306,100 @@ function updateWorkerStock(trabajadorId, productoId, cantidad, callback) {
     [cantidad, trabajadorId, productoId],
     callback
   );
+}
+
+function bulkAssignStockToWorker(trabajadorId, asignaciones, callback) {
+  if (!asignaciones || !asignaciones.length) {
+    return callback(null);
+  }
+
+  db.serialize(() => {
+    db.run('BEGIN TRANSACTION');
+
+    // 1. Crear el registro de la entrega
+    db.run('INSERT INTO entregas_inventario (trabajador_id) VALUES (?)', [trabajadorId], function (err) {
+      if (err) {
+        db.run('ROLLBACK');
+        return callback(err);
+      }
+
+      const entregaId = this.lastID;
+      let completed = 0;
+      let hasError = false;
+
+      const finalize = (err) => {
+        if (hasError) return;
+        if (err) {
+          hasError = true;
+          db.run('ROLLBACK');
+          return callback(err);
+        }
+        completed++;
+        if (completed === asignaciones.length) {
+          db.run('COMMIT');
+          callback(null, { id: entregaId, message: 'Inventario masivo asignado y registrado' });
+        }
+      };
+
+      asignaciones.forEach(asig => {
+        const { producto_id, cantidad } = asig;
+        const qty = Number(cantidad);
+
+        // a. Verificar stock global
+        db.get('SELECT stock FROM productos WHERE id = ?', [producto_id], (err, prod) => {
+          if (err || !prod) return finalize(err || new Error(`Producto ${producto_id} no encontrado`));
+          if (prod.stock < qty) return finalize(new Error(`Stock global insuficiente para ${prod.nombre}`));
+
+          // b. Restar del stock global
+          db.run('UPDATE productos SET stock = stock - ? WHERE id = ?', [qty, producto_id], (err2) => {
+            if (err2) return finalize(err2);
+
+            // c. Sumar al trabajador
+            db.run(`
+              INSERT INTO inventario_trabajador (trabajador_id, producto_id, stock)
+              VALUES (?, ?, ?)
+              ON CONFLICT(trabajador_id, producto_id) DO UPDATE SET
+              stock = stock + excluded.stock,
+              fecha_actualizacion = CURRENT_TIMESTAMP
+            `, [trabajadorId, producto_id, qty], (err3) => {
+              if (err3) return finalize(err3);
+
+              // d. Registrar detalle de la entrega
+              db.run(`
+                INSERT INTO detalle_entregas_inventario (entrega_id, producto_id, cantidad)
+                VALUES (?, ?, ?)
+              `, [entregaId, producto_id, qty], (err4) => {
+                finalize(err4);
+              });
+            });
+          });
+        });
+      });
+    });
+  });
+}
+
+function getPastDeliveries(trabajadorId, callback) {
+  const query = `
+    SELECT e.id, e.fecha, COUNT(d.id) as total_items
+    FROM entregas_inventario e
+    JOIN detalle_entregas_inventario d ON e.id = d.entrega_id
+    WHERE e.trabajador_id = ?
+    GROUP BY e.id
+    ORDER BY e.fecha DESC
+    LIMIT 10
+  `;
+  db.all(query, [trabajadorId], callback);
+}
+
+function getDeliveryDetails(entregaId, callback) {
+  const query = `
+    SELECT d.*, p.nombre, p.categoria
+    FROM detalle_entregas_inventario d
+    JOIN productos p ON d.producto_id = p.id
+    WHERE d.entrega_id = ?
+  `;
+  db.all(query, [entregaId], callback);
 }
 
 // ==================== FUNCIONES DE TRABAJADORES ====================
@@ -632,5 +747,8 @@ module.exports = {
   getDashboardSummary,
   getWorkerInventory,
   assignStockToWorker,
+  bulkAssignStockToWorker,
+  getPastDeliveries,
+  getDeliveryDetails,
   updateWorkerStock
 };

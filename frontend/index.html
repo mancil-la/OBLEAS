@@ -296,13 +296,21 @@
             <!-- Asignar Stock Section -->
             <section id="asignar-stock" class="content-section">
                 <div class="section-header">
-                    <div class="filter-group">
-                        <select id="asignar-trabajador-select" class="form-control"
-                            onchange="cargarTablaAsignaciones()">
-                            <option value="">Seleccionar trabajador...</option>
-                        </select>
-                        <button class="btn btn-primary" onclick="mostrarModalAsignar()">
-                            <i class="fas fa-plus"></i> Asignar Nuevo Stock
+                    <div class="filter-group" style="flex-wrap: wrap; gap: 1rem;">
+                        <div style="display:flex; align-items:center; gap:0.5rem; min-width:250px;">
+                            <label style="white-space:nowrap; margin:0;">Para:</label>
+                            <select id="asignar-trabajador-select" class="form-control"
+                                onchange="actualizarInterfazAsignacion()">
+                                <option value="">Seleccionar trabajador...</option>
+                            </select>
+                        </div>
+                        <div style="flex:1; min-width:250px;">
+                            <input type="text" id="asignar-stock-buscar" class="form-control"
+                                placeholder="🔍 Buscar productos..." oninput="filtrarAsignacionMasiva()">
+                        </div>
+                        <button class="btn btn-primary" onclick="guardarAsignacionMasiva()"
+                            style="background-color: var(--success-color);">
+                            <i class="fas fa-save"></i> Guardar Todo el Inventario
                         </button>
                     </div>
                 </div>
@@ -312,16 +320,23 @@
                             <tr>
                                 <th>Producto</th>
                                 <th>Categoría</th>
-                                <th>Stock Actual</th>
-                                <th>Última Actualización</th>
+                                <th>Stock Global</th>
+                                <th>En su Inventario</th>
+                                <th style="width: 140px;">Añadir Cant.</th>
                             </tr>
                         </thead>
-                        <tbody id="asignaciones-tabla">
+                        <tbody id="asignaciones-tabla-masiva">
                             <tr>
-                                <td colspan="4" class="text-center">Seleccione un trabajador para ver su inventario</td>
+                                <td colspan="5" class="text-center">Seleccione un trabajador para gestionar su
+                                    inventario</td>
                             </tr>
                         </tbody>
                     </table>
+                </div>
+                <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 1rem;">
+                    <button class="btn btn-secondary" onclick="mostrarHistorialEntregas()">
+                        <i class="fas fa-history"></i> Ver Entregas Anteriores
+                    </button>
                 </div>
             </section>
         </main>
@@ -465,6 +480,60 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="cerrarModalAsignar()">Cancelar</button>
                 <button class="btn btn-primary" onclick="guardarAsignacion()">Confirmar Entrega</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Historial Entregas -->
+    <div id="modal-historial-entregas" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Historial de Entregas</h3>
+                <span class="close" onclick="cerrarModalHistorial()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="historial-entregas-lista" class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Total Variedades</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-historial-entregas"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Detalle Entrega para Repetir -->
+    <div id="modal-detalle-entrega" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Detalle de Entrega Anterior</h3>
+                <span class="close" onclick="cerrarModalDetalleEntrega()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>¿Deseas cargar estas mismas cantidades al trabajador ahora?</p>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Cantidad que se entregó</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-detalle-entrega"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="cerrarModalDetalleEntrega()">Cancelar</button>
+                <button class="btn btn-primary" id="btn-repetir-entrega">
+                    <i class="fas fa-copy"></i> Cargar al trabajador ahora
+                </button>
             </div>
         </div>
     </div>

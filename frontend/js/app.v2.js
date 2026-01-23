@@ -247,6 +247,8 @@ function mostrarSeccion(sectionId) {
       break;
     case 'asignar-stock':
       cargarSelectTrabajadoresAsignar();
+      if (qs('asignar-stock-buscar')) qs('asignar-stock-buscar').value = '';
+      actualizarInterfazAsignacion();
       break;
   }
 }
@@ -1363,10 +1365,12 @@ async function generarReporteProductos() {
   }
 }
 
+// -------------------- Gestión de Inventario Masiva (Admin) --------------------
+
 window.generarReporteTrabajadores = generarReporteTrabajadores;
 window.generarReporteProductos = generarReporteProductos;
 
-// -------------------- Gestión de Inventario (Admin) --------------------
+let datosAsignacionGlobal = []; // Para búsqueda local
 
 function cargarSelectTrabajadoresAsignar() {
   const select = qs('asignar-trabajador-select');
@@ -1376,88 +1380,222 @@ function cargarSelectTrabajadoresAsignar() {
     trabajadores.filter(t => t.rol !== 'admin').map(t => `<option value="${t.id}">${t.nombre}</option>`).join('');
 }
 
-async function cargarTablaAsignaciones() {
+async function actualizarInterfazAsignacion() {
   const tid = qs('asignar-trabajador-select').value;
-  const tbody = qs('asignaciones-tabla');
+  const tbody = qs('asignaciones-tabla-masiva');
   if (!tbody) return;
 
   if (!tid) {
-    tbody.innerHTML = '<tr><td colspan="4" class="text-center">Seleccione un trabajador para ver su inventario</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center">Seleccione un trabajador para gestionar su inventario</td></tr>';
     return;
   }
 
   try {
-    const data = await fetchJson(`${API_URL}/inventario/trabajador/${tid}`);
-    if (!data.length) {
-      tbody.innerHTML = '<tr><td colspan="4" class="text-center">El trabajador no tiene productos asignados</td></tr>';
-      return;
-    }
+    // 1. Cargar productos globales
+    const prodsGlobales = await fetchJson(`${API_URL}/productos`);
+    // 2. Cargar inventario del trabajador
+    const invTrabajador = await fetchJson(`${API_URL}/inventario/trabajador/${tid}`);
 
-    tbody.innerHTML = data.map(i => `
-      <tr>
-        <td>${i.nombre}</td>
-        <td>${i.categoria}</td>
-        <td><strong>${i.stock}</strong></td>
-        <td>${formatDateTime(i.fecha_actualizacion)}</td>
-      </tr>
-    `).join('');
-  } catch (e) {
-    console.error(e);
-    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Error al cargar datos</td></tr>';
-  }
-}
-
-async function mostrarModalAsignar() {
-  const tid = qs('asignar-trabajador-select').value;
-  const modal = qs('modal-asignar');
-  if (!modal) return;
-
-  const selectT = qs('modal-asignar-trabajador');
-  const selectP = qs('modal-asignar-producto');
-
-  // Cargar trabajadores en el modal
-  selectT.innerHTML = '<option value="">Seleccionar...</option>' +
-    trabajadores.filter(t => t.rol !== 'admin').map(t => `<option value="${t.id}">${t.nombre}</option>`).join('');
-
-  if (tid) selectT.value = tid;
-
-  // Cargar productos globales disponibles
-  const prodsGlobales = await fetchJson(`${API_URL}/productos`);
-  selectP.innerHTML = '<option value="">Seleccionar producto...</option>' +
-    prodsGlobales.map(p => `<option value="${p.id}">${p.nombre} (Stock: ${p.stock})</option>`).join('');
-
-  modal.classList.add('active');
-}
-
-function cerrarModalAsignar() {
-  qs('modal-asignar').classList.remove('active');
-}
-
-async function guardarAsignacion() {
-  const trabajador_id = qs('modal-asignar-trabajador').value;
-  const producto_id = qs('modal-asignar-producto').value;
-  const cantidad = Number(qs('modal-asignar-cantidad').value);
-
-  if (!trabajador_id || !producto_id || cantidad <= 0) {
-    alert('Por favor complete todos los datos correctamente');
-    return;
-  }
-
-  try {
-    await fetchJson(`${API_URL}/inventario/asignar`, {
-      method: 'POST',
-      body: JSON.stringify({ trabajador_id, producto_id, cantidad })
+    // Unir datos para la tabla
+    datosAsignacionGlobal = prodsGlobales.map(p => {
+      const enInv = invTrabajador.find(i => i.producto_id === p.id);
+      return {
+        id: p.id,
+        nombre: p.nombre,
+        categoria: p.categoria,
+        stock_global: p.stock,
+        stock_trabajador: enInv ? enInv.stock : 0
+      };
     });
 
-    alert('Inventario asignado correctamente');
-    cerrarModalAsignar();
-    cargarTablaAsignaciones();
+    renderTablaAsignacionMasiva();
   } catch (e) {
-    alert(e.message || 'Error al asignar inventario');
+    console.error(e);
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error al cargar datos de inventario</td></tr>';
   }
 }
 
-window.cargarTablaAsignaciones = cargarTablaAsignaciones;
-window.mostrarModalAsignar = mostrarModalAsignar;
-window.cerrarModalAsignar = cerrarModalAsignar;
-window.guardarAsignacion = guardarAsignacion;
+function renderTablaAsignacionMasiva() {
+  const tbody = qs('asignaciones-tabla-masiva');
+  const buscar = normalizeText(qs('asignar-stock-buscar')?.value || '');
+  const words = buscar.split(' ').filter(w => w.length > 0);
+
+  const filtered = datosAsignacionGlobal.filter(p => {
+    if (words.length === 0) return true;
+    const text = normalizeText(`${p.nombre} ${p.categoria}`);
+    return words.every(w => text.includes(w));
+  });
+
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center">No se encontraron productos</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(p => `
+    <tr>
+      <td>${p.nombre}</td>
+      <td><span class="badge" style="background:#e2e8f0; color:#475569;">${p.categoria}</span></td>
+      <td><strong>${p.stock_global}</strong></td>
+      <td><span class="text-primary" style="font-weight:600;">${p.stock_trabajador}</span></td>
+      <td>
+        <input type="number" class="form-control bulk-assign-input" 
+               data-id="${p.id}" data-global="${p.stock_global}" 
+               min="0" step="1" value="0" style="padding: 0.4rem; height: auto;">
+      </td>
+    </tr>
+  `).join('');
+}
+
+function filtrarAsignacionMasiva() {
+  renderTablaAsignacionMasiva();
+}
+
+async function guardarAsignacionMasiva() {
+  const tid = qs('asignar-trabajador-select').value;
+  if (!tid) {
+    alert('Por favor seleccione un trabajador');
+    return;
+  }
+
+  const inputs = document.querySelectorAll('.bulk-assign-input');
+  const asignaciones = [];
+
+  inputs.forEach(input => {
+    const qty = Number(input.value);
+    const pid = Number(input.dataset.id);
+    const globalStock = Number(input.dataset.global);
+
+    if (qty > 0) {
+      if (qty > globalStock) {
+        // En teoría ya validamos en el backend, pero avisamos aquí
+        console.warn(`Producto ${pid} excede stock global`);
+      }
+      asignaciones.push({ producto_id: pid, cantidad: qty });
+    }
+  });
+
+  if (asignaciones.length === 0) {
+    alert('No has ingresado ninguna cantidad para asignar');
+    return;
+  }
+
+  if (!confirm(`¿Estás seguro de asignar estos ${asignaciones.length} productos al trabajador?`)) return;
+
+  try {
+    await fetchJson(`${API_URL}/inventario/asignar-masivo`, {
+      method: 'POST',
+      body: JSON.stringify({ trabajador_id: tid, asignaciones })
+    });
+
+    alert('¡Inventario actualizado con éxito!');
+    // Limpiar inputs y recargar
+    qs('asignar-stock-buscar').value = '';
+    await actualizarInterfazAsignacion();
+  } catch (e) {
+    alert(e.message || 'Error al guardar la asignación masiva');
+  }
+}
+
+async function mostrarHistorialEntregas() {
+  const tid = qs('asignar-trabajador-select').value;
+  if (!tid) {
+    alert('Por favor seleccione un trabajador primero');
+    return;
+  }
+
+  try {
+    const data = await fetchJson(`${API_URL}/inventario/historial-entregas/${tid}`);
+    const modal = qs('modal-historial-entregas');
+    const tbody = qs('tbody-historial-entregas');
+    if (!modal || !tbody) return;
+
+    if (!data.length) {
+      tbody.innerHTML = '<tr><td colspan="3" class="text-center">No hay historial para este trabajador</td></tr>';
+    } else {
+      tbody.innerHTML = data.map(h => `
+        <tr>
+          <td>${formatDateTime(h.fecha)}</td>
+          <td>${h.total_items} productos</td>
+          <td>
+            <button class="btn btn-sm btn-primary" onclick="verDetalleEntregaPasada(${h.id})">
+              <i class="fas fa-eye"></i> Revisar / Repetir
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    modal.classList.add('active');
+  } catch (e) {
+    alert('Error al cargar historial: ' + e.message);
+  }
+}
+
+function cerrarModalHistorial() {
+  qs('modal-historial-entregas').classList.remove('active');
+}
+
+async function verDetalleEntregaPasada(entregaId) {
+  try {
+    const data = await fetchJson(`${API_URL}/inventario/entrega/${entregaId}`);
+    const modal = qs('modal-detalle-entrega');
+    const tbody = qs('tbody-detalle-entrega');
+    const btnRepetir = qs('btn-repetir-entrega');
+    if (!modal || !tbody) return;
+
+    tbody.innerHTML = data.map(d => `
+      <tr>
+        <td>${d.nombre}</td>
+        <td><strong>${d.cantidad}</strong></td>
+      </tr>
+    `).join('');
+
+    // Configurar el botón de repetir
+    btnRepetir.onclick = () => repetirEntregaAnterior(data);
+
+    modal.classList.add('active');
+  } catch (e) {
+    alert('Error al cargar detalle: ' + e.message);
+  }
+}
+
+function cerrarModalDetalleEntrega() {
+  qs('modal-detalle-entrega').classList.remove('active');
+}
+
+async function repetirEntregaAnterior(productosRepetir) {
+  const tid = qs('asignar-trabajador-select').value;
+  if (!tid) return;
+
+  if (!confirm(`¿Confirmas que deseas cargar estas mismas ${productosRepetir.length} variaciones de producto al trabajador?`)) return;
+
+  try {
+    const asignaciones = productosRepetir.map(p => ({
+      producto_id: p.producto_id,
+      cantidad: p.cantidad
+    }));
+
+    await fetchJson(`${API_URL}/inventario/asignar-masivo`, {
+      method: 'POST',
+      body: JSON.stringify({ trabajador_id: tid, asignaciones })
+    });
+
+    alert('¡Inventario repetido con éxito!');
+    cerrarModalDetalleEntrega();
+    cerrarModalHistorial();
+    await actualizarInterfazAsignacion();
+  } catch (e) {
+    alert('Error al repetir entrega: ' + e.message);
+  }
+}
+
+window.actualizarInterfazAsignacion = actualizarInterfazAsignacion;
+window.filtrarAsignacionMasiva = filtrarAsignacionMasiva;
+window.guardarAsignacionMasiva = guardarAsignacionMasiva;
+window.cargarSelectTrabajadoresAsignar = cargarSelectTrabajadoresAsignar;
+
+window.mostrarHistorialEntregas = mostrarHistorialEntregas;
+window.cerrarModalHistorial = cerrarModalHistorial;
+window.verDetalleEntregaPasada = verDetalleEntregaPasada;
+window.cerrarModalDetalleEntrega = cerrarModalDetalleEntrega;
+window.repetirEntregaAnterior = repetirEntregaAnterior;

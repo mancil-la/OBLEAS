@@ -286,6 +286,27 @@ app.get('/api/inventario/trabajador/:id', requireAuth, (req, res) => {
   });
 });
 
+// Historial de entregas (Admin o propio)
+app.get('/api/inventario/historial-entregas/:id', requireAuth, (req, res) => {
+  const trabajadorId = req.params.id;
+  if (req.session.userRole !== 'admin' && String(req.session.userId) !== String(trabajadorId)) {
+    return res.status(403).json({ error: 'Acceso denegado' });
+  }
+
+  db.getPastDeliveries(trabajadorId, (err, data) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(data);
+  });
+});
+
+// Detalle de una entrega específica
+app.get('/api/inventario/entrega/:id', requireAdmin, (req, res) => {
+  db.getDeliveryDetails(req.params.id, (err, data) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(data);
+  });
+});
+
 // Asignar stock a un trabajador (Solo Admin)
 app.post('/api/inventario/asignar', requireAdmin, (req, res) => {
   const { trabajador_id, producto_id, cantidad } = req.body;
@@ -299,6 +320,22 @@ app.post('/api/inventario/asignar', requireAdmin, (req, res) => {
       return res.status(400).json({ error: err.message });
     }
     res.json({ message: 'Inventario asignado exitosamente' });
+  });
+});
+
+// Asignar stock MASIVO a un trabajador (Solo Admin)
+app.post('/api/inventario/asignar-masivo', requireAdmin, (req, res) => {
+  const { trabajador_id, asignaciones } = req.body;
+
+  if (!trabajador_id || !asignaciones || !Array.isArray(asignaciones)) {
+    return res.status(400).json({ error: 'Datos de asignación masiva inválidos' });
+  }
+
+  db.bulkAssignStockToWorker(trabajador_id, asignaciones, (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message });
+    }
+    res.json({ message: 'Inventario masivo asignado exitosamente' });
   });
 });
 
