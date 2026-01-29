@@ -459,8 +459,27 @@ async function ajustarStockProducto(productoId, mode) {
 function mostrarModalProducto(id = null) {
   const modal = qs('modal-producto');
   const titulo = qs('modal-titulo');
+  const selectCategoria = qs('producto-categoria');
 
   if (!modal || !titulo) return;
+
+  // Cargar categorías dinámicamente
+  if (selectCategoria) {
+    // Categorías base (siempre disponibles)
+    const categoriasBase = ['Obleas', 'Botanas', 'Dulces', 'Bebidas', 'Otros'];
+
+    // Obtener categorías existentes de los productos
+    const categoriasExistentes = getCategoriasProductos();
+
+    // Combinar y eliminar duplicados, ordenar alfabéticamente
+    const todasCategorias = [...new Set([...categoriasBase, ...categoriasExistentes])]
+      .sort((a, b) => a.localeCompare(b, 'es'));
+
+    // Generar opciones del select
+    selectCategoria.innerHTML = todasCategorias
+      .map(cat => `<option value="${cat}">${cat}</option>`)
+      .join('');
+  }
 
   if (id) {
     titulo.textContent = 'Editar Producto';
