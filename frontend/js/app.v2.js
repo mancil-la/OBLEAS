@@ -1294,7 +1294,7 @@ function imprimirViaIframe(html) {
           .ticket-producto > div:first-child { flex: 1; padding-right: 5px; }
           .ticket-total { font-weight: 900; font-size: 16px; text-align: right; margin-top: 6px; border-top: 1px solid #000; padding-top: 4px; }
           .ticket-footer { text-align: center; margin-top: 10px; font-size: 11px; padding-bottom: 5mm; }
-          .ticket-qr { width: 100%; max-width: 200px; height: auto; display: block; margin: 5px auto 0; }
+          .ticket-qr { width: 100%; max-width: 150px; height: auto; display: block; margin: 5px auto 0; }
           .ticket-separator {
             width: 100%;
             border-bottom: 2px dashed #000;
