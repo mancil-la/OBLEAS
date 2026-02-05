@@ -1224,7 +1224,12 @@ async function mostrarTicket(ventaId, autoPrint = false) {
     ticketHTML += `
         </div>
         <div class="ticket-total"><p>TOTAL: ${formatMoney(venta.total)}</p></div>
-        <div class="ticket-footer"><p>¡Gracias por su compra!</p></div>
+        <div class="ticket-footer">
+          <p>¡Gracias por su compra!</p>
+          <br>
+          <p style="font-weight: bold; font-size: 12px; margin-bottom: 2px;">Visita nuestra página web</p>
+          <img src="/assets/qr.png" class="ticket-qr" alt="QR">
+        </div>
       </div>
     `;
 
@@ -1269,10 +1274,14 @@ function imprimirViaIframe(html) {
             background: #fff;
             color: #000;
           }
-          #ticket-contenido { 
+          .ticket-container { 
             width: 58mm; 
             padding: 2mm; 
             box-sizing: border-box;
+            page-break-after: always;
+          }
+          .ticket-container:last-child {
+            page-break-after: auto;
           }
           .ticket-header { text-align: center; margin-bottom: 5px; border-bottom: 1px dashed #000; padding-bottom: 5px; }
           .ticket-logo { width: 140px; height: auto; display: block; margin: 0 auto 5px; }
@@ -1284,13 +1293,32 @@ function imprimirViaIframe(html) {
           .ticket-producto { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 11px; font-weight: bold; }
           .ticket-producto > div:first-child { flex: 1; padding-right: 5px; }
           .ticket-total { font-weight: 900; font-size: 16px; text-align: right; margin-top: 6px; border-top: 1px solid #000; padding-top: 4px; }
-          .ticket-footer { text-align: center; margin-top: 10px; font-size: 11px; padding-bottom: 20mm; }
+          .ticket-footer { text-align: center; margin-top: 10px; font-size: 11px; padding-bottom: 5mm; }
+          .ticket-qr { width: 100%; max-width: 200px; height: auto; display: block; margin: 5px auto 0; }
+          .ticket-separator {
+            width: 100%;
+            border-bottom: 2px dashed #000;
+            margin: 5mm 0;
+            text-align: center;
+            font-size: 10px;
+          }
         </style>
       </head>
       <body>
-        <div id="ticket-contenido">
+        <!-- COPIA 1 -->
+        <div class="ticket-container">
+          <center><strong>--- ORIGINAL ---</strong></center>
           ${html}
         </div>
+        
+        <div class="ticket-separator">- - CORTE AQUÍ - -</div>
+
+        <!-- COPIA 2 -->
+        <div class="ticket-container">
+          <center><strong>--- COPIA CLIENTE ---</strong></center>
+          ${html}
+        </div>
+
         <script>
           // Esperar a que las imágenes carguen antes de imprimir
           window.onload = function() {
