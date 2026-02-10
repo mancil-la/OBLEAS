@@ -200,7 +200,8 @@ function mostrarSeccion(sectionId) {
     historial: 'Historial de Ventas',
     trabajadores: 'Gestión de Trabajadores',
     reportes: 'Reportes',
-    'asignar-stock': 'Asignar Inventario a Trabajadores'
+    'asignar-stock': 'Asignar Inventario a Trabajadores',
+    catalogo: 'Catálogo de Productos'
   };
 
   const title = qs('page-title');
@@ -250,7 +251,35 @@ function mostrarSeccion(sectionId) {
       if (qs('asignar-stock-buscar')) qs('asignar-stock-buscar').value = '';
       actualizarInterfazAsignacion();
       break;
+    case 'catalogo':
+      cargarCatalogo();
+      break;
   }
+}
+
+function cargarCatalogo() {
+  const container = qs('catalogo-grid');
+  if (!container || container.childElementCount > 0) return;
+
+  const images = [
+    'Documento A4 Catálogo De Joyería Elegante Beige_pages-to-jpg-0001.jpg',
+    'Documento A4 Catálogo De Joyería Elegante Beige_pages-to-jpg-0002.jpg',
+    'Documento A4 Catálogo De Joyería Elegante Beige_pages-to-jpg-0003.jpg',
+    'Documento A4 Catálogo De Joyería Elegante Beige_pages-to-jpg-0004.jpg',
+    'Documento A4 Catálogo De Joyería Elegante Beige_pages-to-jpg-0005.jpg',
+    'Documento A4 Catálogo De Joyería Elegante Beige_pages-to-jpg-0006.jpg',
+    'Documento A4 Catálogo De Joyería Elegante Beige_pages-to-jpg-0007.jpg',
+    'Documento A4 Catálogo De Joyería Elegante Beige_pages-to-jpg-0008.jpg',
+    'Documento A4 Catálogo De Joyería Elegante Beige_pages-to-jpg-0009.jpg',
+    'Documento A4 Catálogo De Joyería Elegante Beige_pages-to-jpg-0010.jpg',
+    'Documento A4 Catálogo De Joyería Elegante Beige_pages-to-jpg-0011.jpg'
+  ];
+
+  container.innerHTML = images.map(img => `
+    <div class="catalogo-item">
+      <img src="/assets/${encodeURIComponent(img)}" alt="Catálogo página" loading="lazy">
+    </div>
+  `).join('');
 }
 
 // -------------------- Helpers Fecha --------------------

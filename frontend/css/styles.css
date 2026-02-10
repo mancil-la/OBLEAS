@@ -1249,3 +1249,38 @@ body {
 .hidden {
     display: none;
 }
+
+/* ==================== CATÁLOGO ==================== */
+
+.catalogo-container {
+    padding: 1rem;
+    background: var(--card-bg);
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.catalogo-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    align-items: center;
+}
+
+.catalogo-item {
+    width: 100%;
+    max-width: 800px;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease;
+}
+
+.catalogo-item:hover {
+    transform: scale(1.02);
+}
+
+.catalogo-item img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
