@@ -800,6 +800,34 @@
             .footer-logo img {
                 width: 50px;
             }
+
+            .catalogo-gallery {
+                display: flex;
+                flex-direction: column;
+                gap: 2rem;
+                align-items: center;
+            }
+
+            .catalogo-item {
+                width: 100%;
+                max-width: 800px;
+                background: white;
+                border-radius: 10px;
+                overflow: hidden;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+                transition: transform 0.3s ease;
+            }
+
+            .catalogo-item:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            }
+
+            .catalogo-item img {
+                width: 100%;
+                height: auto;
+                display: block;
+            }
         }
     </style>
 </head>
@@ -892,56 +920,13 @@
         <div class="section-container">
             <div class="section-header">
                 <span class="section-tag">Nuestro Menú</span>
-                <h2>Productos Favoritos</h2>
-                <p>Descubre nuestra variedad de deliciosas obleas y botanas mexicanas</p>
+                <h2>Catálogo de Productos</h2>
+                <p>Explora nuestra variedad completa de productos</p>
             </div>
 
-            <!-- Showcase de productos -->
-            <div class="products-showcase">
-                <img src="/assets/muchos productos.png" alt="Variedad de Obleas y Botanas">
-            </div>
-
-            <div class="products-grid">
-                <div class="product-card">
-                    <div class="product-image" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
-                        <i class="fas fa-cookie"></i>
-                    </div>
-                    <div class="product-info">
-                        <h3>Obleas de Cajeta</h3>
-                        <p>Deliciosas obleas crujientes rellenas de auténtica cajeta artesanal.</p>
-                        <span class="product-price">Desde $15</span>
-                    </div>
-                </div>
-                <div class="product-card">
-                    <div class="product-image" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
-                        <i class="fas fa-pepper-hot"></i>
-                    </div>
-                    <div class="product-info">
-                        <h3>Botanas Picantes</h3>
-                        <p>Variedad de botanas con el toque picante que te encanta.</p>
-                        <span class="product-price">Desde $20</span>
-                    </div>
-                </div>
-                <div class="product-card">
-                    <div class="product-image" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
-                        <i class="fas fa-candy-cane"></i>
-                    </div>
-                    <div class="product-info">
-                        <h3>Dulces Mexicanos</h3>
-                        <p>Selección de los dulces tradicionales mexicanos más populares.</p>
-                        <span class="product-price">Desde $10</span>
-                    </div>
-                </div>
-                <div class="product-card">
-                    <div class="product-image" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
-                        <i class="fas fa-lemon"></i>
-                    </div>
-                    <div class="product-info">
-                        <h3>Botanas con Limón</h3>
-                        <p>El sabor fresco del limón en nuestras botanas especiales.</p>
-                        <span class="product-price">Desde $18</span>
-                    </div>
-                </div>
+            <!-- Galería del catálogo -->
+            <div class="catalogo-gallery" id="catalogo-gallery">
+                <!-- Las imágenes se cargarán aquí -->
             </div>
         </div>
     </section>
@@ -1110,6 +1095,32 @@
                 const links = document.querySelector('.navbar-links');
                 links.classList.remove('active');
             });
+        });
+
+        // Cargar Catálogo
+        document.addEventListener('DOMContentLoaded', () => {
+            const gallery = document.getElementById('catalogo-gallery');
+            if (gallery) {
+                const images = [
+                    'Documento A4 Catálogo De Joyería Elegante Beige_pages-to-jpg-0001.jpg',
+                    'Documento A4 Catálogo De Joyería Elegante Beige_pages-to-jpg-0002.jpg',
+                    'Documento A4 Catálogo De Joyería Elegante Beige_pages-to-jpg-0003.jpg',
+                    'Documento A4 Catálogo De Joyería Elegante Beige_pages-to-jpg-0004.jpg',
+                    'Documento A4 Catálogo De Joyería Elegante Beige_pages-to-jpg-0005.jpg',
+                    'Documento A4 Catálogo De Joyería Elegante Beige_pages-to-jpg-0006.jpg',
+                    'Documento A4 Catálogo De Joyería Elegante Beige_pages-to-jpg-0007.jpg',
+                    'Documento A4 Catálogo De Joyería Elegante Beige_pages-to-jpg-0008.jpg',
+                    'Documento A4 Catálogo De Joyería Elegante Beige_pages-to-jpg-0009.jpg',
+                    'Documento A4 Catálogo De Joyería Elegante Beige_pages-to-jpg-0010.jpg',
+                    'Documento A4 Catálogo De Joyería Elegante Beige_pages-to-jpg-0011.jpg'
+                ];
+
+                gallery.innerHTML = images.map(img => `
+                    <div class="catalogo-item">
+                        <img src="/assets/${encodeURIComponent(img)}" alt="Catálogo página" loading="lazy">
+                    </div>
+                `).join('');
+            }
         });
     </script>
 </body>
