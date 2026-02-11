@@ -301,6 +301,24 @@ function formatDateTime(dbDate) {
   });
 }
 
+function getFechaHoy() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function getFechaInicioSemana() {
+  const hoy = new Date();
+  const dia = hoy.getDay(); // 0 = domingo, 1 = lunes, ...
+  const diff = dia === 0 ? -6 : 1 - dia; // Si es domingo, retroceder 6 días; si no, retroceder hasta el lunes
+  const inicioSemana = new Date(hoy);
+  inicioSemana.setDate(hoy.getDate() + diff);
+  return inicioSemana.toISOString().split('T')[0];
+}
+
+function getFechaInicioMes() {
+  const hoy = new Date();
+  return new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().split('T')[0];
+}
+
 // -------------------- Datos iniciales --------------------
 
 async function inicializarDatos() {
@@ -322,6 +340,7 @@ async function cargarDashboard() {
 
     // Gráficos simples con divs
     if (usuarioActual.rol === 'admin') {
+      configurarFiltrosVentasTrabajador();
       await cargarGraficoVentasTrabajador();
     } else {
       const cont = qs('ventas-trabajador-chart');
@@ -334,17 +353,82 @@ async function cargarDashboard() {
   }
 }
 
+function configurarFiltrosVentasTrabajador() {
+  const filtroPeriodo = qs('filtro-periodo-ventas');
+  const fechaInicio = qs('fecha-inicio-ventas');
+  const fechaFin = qs('fecha-fin-ventas');
+  const btnAplicar = qs('btn-aplicar-filtro-ventas');
+
+  if (!filtroPeriodo) return;
+
+  // Configurar fechas iniciales para personalizado
+  const hoy = getFechaHoy();
+  if (fechaInicio) fechaInicio.value = hoy;
+  if (fechaFin) fechaFin.value = hoy;
+
+  // Cambio de período
+  filtroPeriodo.addEventListener('change', () => {
+    const esPersonalizado = filtroPeriodo.value === 'personalizado';
+    if (fechaInicio) fechaInicio.style.display = esPersonalizado ? 'block' : 'none';
+    if (fechaFin) fechaFin.style.display = esPersonalizado ? 'block' : 'none';
+    if (btnAplicar) btnAplicar.style.display = esPersonalizado ? 'block' : 'none';
+
+    if (!esPersonalizado) {
+      cargarGraficoVentasTrabajador();
+    }
+  });
+
+  // Aplicar filtro personalizado
+  if (btnAplicar) {
+    btnAplicar.addEventListener('click', () => {
+      cargarGraficoVentasTrabajador();
+    });
+  }
+}
+
 async function cargarGraficoVentasTrabajador() {
   try {
-    const hoy = new Date().toISOString().split('T')[0];
-    const data = await fetchJson(`${API_URL}/reportes/ventas-por-trabajador?fecha_inicio=${hoy}&fecha_fin=${hoy}`, { method: 'GET' });
+    // Obtener fechas según el filtro seleccionado
+    const filtroPeriodo = qs('filtro-periodo-ventas');
+    const fechaInicioInput = qs('fecha-inicio-ventas');
+    const fechaFinInput = qs('fecha-fin-ventas');
+    
+    let fechaInicio, fechaFin;
+    
+    const periodo = filtroPeriodo ? filtroPeriodo.value : 'semana';
+    
+    switch (periodo) {
+      case 'hoy':
+        fechaInicio = fechaFin = getFechaHoy();
+        break;
+      case 'semana':
+        fechaInicio = getFechaInicioSemana();
+        fechaFin = getFechaHoy();
+        break;
+      case 'mes':
+        fechaInicio = getFechaInicioMes();
+        fechaFin = getFechaHoy();
+        break;
+      case 'personalizado':
+        fechaInicio = fechaInicioInput ? fechaInicioInput.value : getFechaHoy();
+        fechaFin = fechaFinInput ? fechaFinInput.value : getFechaHoy();
+        break;
+      default:
+        fechaInicio = getFechaInicioSemana();
+        fechaFin = getFechaHoy();
+    }
+
+    const data = await fetchJson(`${API_URL}/reportes/ventas-por-trabajador?fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}`, { method: 'GET' });
     if (!data) return;
 
     const container = qs('ventas-trabajador-chart');
     if (!container) return;
 
     if (data.length === 0 || data.every(i => i.total_vendido === 0)) {
-      container.innerHTML = '<p class="text-center text-light">No hay ventas registradas hoy</p>';
+      const periodoTexto = periodo === 'hoy' ? 'hoy' : 
+                          periodo === 'semana' ? 'esta semana' : 
+                          periodo === 'mes' ? 'este mes' : 'en el período seleccionado';
+      container.innerHTML = `<p class="text-center text-light">No hay ventas registradas ${periodoTexto}</p>`;
       return;
     }
 

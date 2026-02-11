@@ -109,7 +109,22 @@
 
                 <div class="charts-grid">
                     <div class="chart-card">
-                        <h3>Ventas por Trabajador</h3>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h3>Ventas por Trabajador</h3>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <select id="filtro-periodo-ventas" class="form-control" style="width: auto;">
+                                    <option value="hoy">Hoy</option>
+                                    <option value="semana" selected>Esta Semana</option>
+                                    <option value="mes">Este Mes</option>
+                                    <option value="personalizado">Personalizado</option>
+                                </select>
+                                <input type="date" id="fecha-inicio-ventas" class="form-control" style="width: auto; display: none;">
+                                <input type="date" id="fecha-fin-ventas" class="form-control" style="width: auto; display: none;">
+                                <button id="btn-aplicar-filtro-ventas" class="btn btn-sm btn-primary" style="display: none;">
+                                    <i class="fas fa-filter"></i>
+                                </button>
+                            </div>
+                        </div>
                         <div id="ventas-trabajador-chart"></div>
                     </div>
                     <div class="chart-card">
